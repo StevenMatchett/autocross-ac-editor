@@ -20,14 +20,14 @@ Open **http://localhost:5173**. Choose **Load example**, then **Drive** to try t
 ## Build a course
 
 - Resize the site using tiles of **25 × 25 feet** (7.62 × 7.62 m).
-- Place **18-inch orange cones** or sideways pointer cones, with individual rubber scuffs and fading.
+- Place **18-inch orange cones** or sideways pointer cones, using the Nationals mod’s original mesh and worn orange texture.
 - Drag existing cones to move them. Rotate pointers to show the direction of travel.
 - Set **staging** for the car spawn, **start** for the timing line, and **finish** to end the run.
 - Snap to 1-foot, 5-foot, or 25-foot spacing, or turn snapping off.
 - Inspect the course in an orbitable **3D preview**. Select a cone first to inspect it close up.
 - Undo/redo edits, save a JSON layout, or reopen one later. The editor also autosaves in your browser.
 
-The default site is 600 × 400 feet. Cone bases are modeled as 0.28 m squares; locator rings in the editor do not change their physical size. Pointer cones rest on their base edge and tip.
+The default site is 600 × 400 feet. Cone bases are approximately 0.2914 m squares; locator rings in the editor do not change their physical size. Pointer cones rest on their base edge and tip.
 
 ### Editor shortcuts
 
@@ -81,6 +81,14 @@ Opening setup pauses driving. Adjust the sliders, then click **Resume** to try t
 
 Labels, route lines, and the finish marker are omitted. **Add a finish before exporting.** The pad site is a reconstruction, not a surveyed venue model. See the [calibration notes](data/README.md).
 
+## Nationals mod assets
+
+Upright and pointer cones use the original geometry and `ConePaintTexture` from [schmerchak/nats-mod](https://github.com/schmerchak/nats-mod), credited to Mike Ferchak. They appear in both Three.js views and the Blender export. Each cone keeps a subtle, repeatable brightness variation.
+
+![Original Nationals upright and pointer cone assets in the browser renderer](docs/screenshots/nats-cones.png)
+
+The templates preserve the original UVs and normals, with height normalized to exactly 18 inches. The editor still uses its configurable flat concrete site; the original mod’s road, grass, trees, and scenery are not bundled. See [asset credits](ASSET_CREDITS.md) and [integration notes](docs/nats-mod-assets.md).
+
 ## Export to Assetto Corsa
 
 **Export track produces source files, not an installable game track.** You need Blender and the Assetto Corsa SDK's ksEditor to finish the conversion.
@@ -90,7 +98,7 @@ Labels, route lines, and the finish marker are omitted. **Add a finish before ex
 3. Open the generated FBX in **ksEditor**, configure shaders/materials, and export the KN5 into the included track folder.
 4. Copy the completed folder into Assetto Corsa's `content/tracks` directory and verify it in-game.
 
-The ZIP contains the JSON layout, Blender scene/FBX generator, individual cone textures, track configuration (`models.ini`, `data/surfaces.ini`, `ui/ui_track.json`), and conversion instructions. Staging supplies pit and hotlap spawns; start and finish supply timing markers.
+The ZIP contains the JSON layout, Blender scene/FBX generator, the original cone texture and mesh templates, track configuration (`models.ini`, `data/surfaces.ini`, `ui/ui_track.json`), and conversion instructions. Staging supplies pit and hotlap spawns; start and finish supply timing markers.
 
 Upright and pointer cones export as fixed collision meshes named `1WALL_cone_*` and `1WALL_pointer_*`. Preserve these names in ksEditor. Actual stopping, rebound, or climbing over cone geometry must be checked in-game; the export does not include the browser tester's speed-reset logic.
 

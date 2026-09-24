@@ -1,11 +1,9 @@
+import {natsCone} from './nats-assets';
 import nationalsEast from './examples/nationals-east-2026.json';
 export const FOOT = 0.3048;
 export const PAD = 25 * FOOT;
 export const CONE_HEIGHT = 18 * 0.0254;
-export const CONE_BASE = 0.28; // Assumed 11-inch base; height is exactly 18 inches.
-// A sideways cone rests on the bottom edge of its base and its tip.
-export const POINTER_TILT = Math.atan((CONE_BASE / 2 - .018) / (CONE_HEIGHT - .04));
-export const POINTER_CENTER_HEIGHT = CONE_BASE / 2 * Math.cos(POINTER_TILT) + .02 * Math.sin(POINTER_TILT);
+export const CONE_BASE = Math.max(...[0,2].map(axis=>natsCone.cone.bounds[axis][1]-natsCone.cone.bounds[axis][0]));
 export type Item = {id:string; kind:'cone'|'pointer'|'stage'|'start'|'finish'; x:number; z:number; angle:number; width?:number};
 export type Layout = {version:1; name:string; columns:number; rows:number; viewAngle?:number; items:Item[]};
 export const emptyLayout = ():Layout => ({version:1,name:'Untitled course',columns:24,rows:16,items:[]});

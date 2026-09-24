@@ -1,8 +1,9 @@
+import {natsCone} from '../src/nats-assets.ts';
 import {completeLayout} from './fixtures.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {unzipSync,strFromU8} from 'fflate';
-import {PAD,CONE_HEIGHT,CONE_BASE,POINTER_TILT,POINTER_CENTER_HEIGHT,FOOT,emptyLayout,demoLayout,validateLayout,snap} from '../src/model.ts';
+import {PAD,CONE_HEIGHT,CONE_BASE,FOOT,emptyLayout,demoLayout,validateLayout,snap} from '../src/model.ts';
 import {buildExport} from '../src/export.ts';
 test('real-world geometry uses exact feet and inches',()=>{assert.equal(PAD,7.62);assert.ok(Math.abs(CONE_HEIGHT-.4572)<1e-10);assert.equal(snap(8.1,5*FOOT),7.62);});
 test('layouts round trip without moving objects',()=>{const l=demoLayout();assert.deepEqual(validateLayout(JSON.parse(JSON.stringify(l))),l);});
@@ -15,16 +16,24 @@ test('pointer cones preserve headings and allow multiple placements',()=>{
  assert.deepEqual(validateLayout(JSON.parse(JSON.stringify(l))).items,l.items);
  const exported=buildExport({...l,items:[...l.items,{id:'s',kind:'start',x:20,z:20,angle:0},{id:'f',kind:'finish',x:30,z:30,angle:180},{id:'stage',kind:'stage',x:20,z:25,angle:0}]});
  const script=strFromU8(exported.files['build_track.py']);
- assert.match(script,/if item\['kind'\]=='pointer':/);
- assert.match(script,/rotation_euler.x=-math.pi\/2-/);
+ assert.match(script,/asset=cone_assets\[item\['kind'\]\]/);
+ assert.match(script,/obj.rotation_euler.z=-math.radians\(a\)/);
  const roundTrip=JSON.parse(strFromU8(unzipSync(exported.zip)['layout.json']));
  assert.equal(roundTrip.items[0].angle,90);assert.equal(roundTrip.items[1].angle,270);
 });
 
-test('sideways cones rest on the base edge and tip without sinking',()=>{
- const baseBottom=POINTER_CENTER_HEIGHT-CONE_BASE/2*Math.cos(POINTER_TILT)-.02*Math.sin(POINTER_TILT);
- const tipBottom=POINTER_CENTER_HEIGHT-(CONE_HEIGHT-.02)*Math.sin(POINTER_TILT)-.018*Math.cos(POINTER_TILT);
- assert.ok(Math.abs(baseBottom)<1e-10);assert.ok(Math.abs(tipBottom)<1e-10);
+test('original cone templates are grounded, correctly scaled, and have valid geometry',()=>{
+ for(const kind of ['cone','pointer'] as const){
+  const asset=natsCone[kind],p=asset.positions;
+  const ys=p.filter((_,i)=>i%3===1);
+  assert.ok(Math.abs(Math.min(...ys))<1e-7);
+  assert.equal(p.length/3,36);assert.equal(asset.indices.length/3,44);
+  assert.ok(asset.indices.every(i=>i>=0&&i<p.length/3));
+  assert.equal(asset.normals.length,p.length);assert.equal(asset.uv.length,p.length/3*2);
+ }
+ assert.ok(Math.abs(natsCone.cone.bounds[1][1]-CONE_HEIGHT)<1e-7);
+ assert.ok(CONE_BASE>.29&&CONE_BASE<.30);
+ assert.ok(natsCone.pointer.bounds[2][0]<-.44);
 });
 
 test('staging is unique and required for export; existing layouts still open',()=>{
@@ -44,9 +53,8 @@ test('both cone orientations export as fixed collision meshes',()=>{
  const begin=script.indexOf("if item['kind'] in ('cone', 'pointer'):");
  const end=script.indexOf("elif item['kind']=='stage':",begin);
  const cones=script.slice(begin,end);
- assert.match(cones,/parts\[0\]\.name='1WALL_'\+item\['kind'\]\+'_%04d'%index/);
- assert.ok(cones.indexOf("name='1WALL_'")<cones.indexOf("if item['kind']=='pointer':"));
- assert.match(cones,/bpy\.ops\.object\.join\(\)/);
+ assert.match(cones,/bpy.data.objects.new\('1WALL_'\+item\['kind'\]\+'_%04d'%index,mesh\)/);
+ assert.match(cones,/mesh.from_pydata/);
  assert.doesNotMatch(script,/bpy\.ops\.rigidbody/);
  assert.match(strFromU8(bundle.files['README.txt']),/Keep 1WALL_cone_\* and 1WALL_pointer_\* mesh names intact/);
 });

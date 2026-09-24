@@ -1,5 +1,6 @@
+import {natsCone} from './nats-assets';
 import {normalizeSetup,type CarSetup} from './car-setup';
-import {CONE_BASE,CONE_HEIGHT,PAD,POINTER_TILT,type Item,type Layout} from './model';
+import {PAD,type Item,type Layout} from './model';
 export const CAR={width:1.8,length:4.2,wheelbase:2.5,eyeHeight:1.1,maxSpeed:29,reverseSpeed:5,tireGrip:12.8};
 export type Controls={forward:boolean;backward:boolean;left:boolean;right:boolean};
 export const released=():Controls=>({forward:false,backward:false,left:false,right:false});
@@ -42,12 +43,9 @@ export class DrivingSimulation {
   this.spawn={x:stage.x,z:stage.z,heading:stage.angle*Math.PI/180};this.pose={...this.spawn};
   this.obstacles=layout.items.filter(i=>i.kind==='cone'||i.kind==='pointer').map(i=>{
    const heading=i.angle*Math.PI/180;
-   if(i.kind==='pointer'){
-    const length=(CONE_HEIGHT-.02)*Math.cos(POINTER_TILT)+.04;
-    const offset=(length-.04)/2;
-    return {x:i.x+Math.sin(heading)*offset,z:i.z-Math.cos(heading)*offset,heading,halfWidth:CONE_BASE/2,halfLength:length/2};
-   }
-   return {x:i.x,z:i.z,heading,halfWidth:CONE_BASE/2,halfLength:CONE_BASE/2};
+   const bounds=natsCone[i.kind as 'cone'|'pointer'].bounds;
+   const cx=(bounds[0][0]+bounds[0][1])/2,cz=(bounds[2][0]+bounds[2][1])/2;
+   return {x:i.x+Math.cos(heading)*cx-Math.sin(heading)*cz,z:i.z+Math.sin(heading)*cx+Math.cos(heading)*cz,heading,halfWidth:(bounds[0][1]-bounds[0][0])/2,halfLength:(bounds[2][1]-bounds[2][0])/2};
   });
   const collision=this.blocked(this.pose);
   if(collision)throw Error(collision==='cone'?'Staging overlaps a cone. Move staging to clear space.':'Staging is too close to the site edge. Move it inward.');

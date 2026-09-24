@@ -1,6 +1,6 @@
-import {coneTexture, coneTexturePNG} from './cone-material';
+import {natsCone,natsTexturePNG,coneTint,assetAttribution} from './nats-assets';
 import { zipSync, strToU8 } from 'fflate';
-import { type Layout, CONE_HEIGHT, CONE_BASE, PAD, POINTER_TILT, POINTER_CENTER_HEIGHT } from './model';
+import { type Layout, CONE_HEIGHT, CONE_BASE, PAD } from './model';
 export function download(data:BlobPart,name:string,type='application/octet-stream'){
  const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
@@ -14,6 +14,7 @@ from pathlib import Path
 from mathutils import Matrix, Vector
 ROOT = Path(__file__).resolve().parent
 layout = json.loads((ROOT / 'layout.json').read_text())
+cone_assets = json.loads((ROOT / 'cone-assets.json').read_text())
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 bpy.context.scene.unit_settings.system = 'METRIC'
@@ -32,11 +33,16 @@ def cone_material(index):
     m.use_nodes = True
     shader = m.node_tree.nodes.get('Principled BSDF')
     shader.inputs['Roughness'].default_value = .78
-    image = bpy.data.images.load(str(ROOT/'texture'/('cone_%04d.png'%index)))
+    image = bpy.data.images.load(str(ROOT/'texture'/'ConePaintTexture.png'), check_existing=True)
     image.colorspace_settings.name = 'sRGB'
     texture = m.node_tree.nodes.new('ShaderNodeTexImage')
     texture.image = image
-    m.node_tree.links.new(texture.outputs['Color'], shader.inputs['Base Color'])
+    tint = cone_assets['tints'][str(index)]
+    multiply = m.node_tree.nodes.new('ShaderNodeMixRGB')
+    multiply.blend_type = 'MULTIPLY'; multiply.inputs[0].default_value = 1
+    multiply.inputs[2].default_value = (tint,tint,tint,1)
+    m.node_tree.links.new(texture.outputs['Color'], multiply.inputs[1])
+    m.node_tree.links.new(multiply.outputs[0], shader.inputs['Base Color'])
     return m
 def cube(name, location, dimensions, mat):
     bpy.ops.mesh.primitive_cube_add(size=1, location=location)
@@ -65,23 +71,22 @@ for index,item in enumerate(layout['items']):
     x,z,a=item['x'],item['z'],item['angle']
     if item['kind'] in ('cone', 'pointer'):
         orange = cone_material(index)
-        parts=[cube('base',(x,-z,.02),(BASE,BASE,.04),orange)]
-        # Solid orange body and base with a persistent per-cone rubber-wear texture.
-        bpy.ops.mesh.primitive_cone_add(vertices=32,radius1=.115,radius2=.018,depth=HEIGHT-.04,location=(x,-z,(HEIGHT+.04)/2))
-        body=bpy.context.object;body.data.materials.append(orange);parts.append(body)
-        for polygon in body.data.polygons:
-            polygon.use_smooth = len(polygon.vertices)==4
-        bpy.ops.object.select_all(action='DESELECT')
-        for o in parts:o.select_set(True)
-        bpy.context.view_layer.objects.active=parts[0];bpy.ops.object.join()
-        # Assetto Corsa treats WALL meshes as fixed collision geometry.
-        # Use the visible closed base/body geometry for both cone orientations.
-        parts[0].name='1WALL_'+item['kind']+'_%04d'%index
-        parts[0].rotation_euler.z=-math.radians(a)
-        if item['kind']=='pointer':
-            parts[0].rotation_euler.x=-math.pi/2-${POINTER_TILT}
-            parts[0].location.z=${POINTER_CENTER_HEIGHT}
-        # Static barriers: no AC_POBJECT or movable rigid-body configuration.
+        asset=cone_assets[item['kind']]
+        p=asset['positions'];uv=asset['uv'];indices=asset['indices']
+        mesh=bpy.data.meshes.new('Nationals_cone')
+        mesh.from_pydata([(p[i],-p[i+2],p[i+1]) for i in range(0,len(p),3)], [], [indices[i:i+3] for i in range(0,len(indices),3)])
+        mesh.update()
+        uv_layer=mesh.uv_layers.new(name='UVMap')
+        for loop in mesh.loops:
+            v=loop.vertex_index;uv_layer.data[loop.index].uv=(uv[v*2],uv[v*2+1])
+        # Retain the original smooth cone normals and hard base edges.
+        n=asset['normals']
+        mesh.normals_split_custom_set_from_vertices([(n[i],-n[i+2],n[i+1]) for i in range(0,len(n),3)])
+        for polygon in mesh.polygons: polygon.use_smooth=True
+        obj=bpy.data.objects.new('1WALL_'+item['kind']+'_%04d'%index,mesh)
+        bpy.context.collection.objects.link(obj);obj.location=(x,-z,0)
+        obj.rotation_euler.z=-math.radians(a);mesh.materials.append(orange)
+        # Original upright/pointer meshes are already grounded. WALL objects are fixed.
     elif item['kind']=='stage':
         marker('AC_PIT_0',x,z,a)
         marker('AC_HOTLAP_START_0',x,z,a)
@@ -103,7 +108,7 @@ This is an Assetto Corsa SOURCE PACKAGE, not an installable track.
    Or open build_track.py in Blender's Scripting workspace and Run Script
    in a fresh session (the script clears the current scene).
 3. Open ${slug}.fbx in Assetto Corsa SDK ksEditor on Windows.
-   Assign ksPerPixel materials and the included texture/cone_NNNN.png diffuse maps.
+   Assign ksPerPixel materials and the included texture/ConePaintTexture.png diffuse maps.
    The PNG files contain the orange color and rubber marks; no procedural shader is required.
    Check scale (each pad 7.62 m), normals, and marker axes (Y up / Z forward).
 4. Export ${slug}.kn5 into the included ${slug}/ folder.
@@ -112,8 +117,8 @@ This is an Assetto Corsa SOURCE PACKAGE, not an installable track.
    Keep 1WALL_cone_* and 1WALL_pointer_* mesh names intact: these enable fixed collisions.
 
 Geometry: exact 25 x 25 ft pads, cone height 18 in (0.4572 m).
-Each cone has an orange body/base with deterministic rubber scuffs and fading.
-Cone base is an assumed 0.28 m square. Units in layout.json are meters.
+Cones use the original Nationals mod geometry, UVs, and orange texture.
+Cone base is approximately 0.2914 m square. See ASSET_CREDITS.txt. Units in layout.json are meters.
 Heading 0 = north, 90 = east. Pointer tips follow that heading.
 Pointer cones rest on their base edge and tip. Timing gates default to 20 feet unless width is specified in the layout.
 The pavement is flat and continuous; joints are visual strips.
@@ -134,6 +139,8 @@ Reference: https://assettocorsamods.net/threads/build-your-first-track-basic-gui
  [`${slug}/models.ini`]:strToU8(`[MODEL_0]\nFILE=${slug}.kn5\nPOSITION=0,0,0\nROTATION=0,0,0\n`),
  [`${slug}/ui/ui_track.json`]:strToU8(JSON.stringify({name:layout.name,description:'Flat concrete autocross practice course',tags:['autocross'],country:'USA',city:'Custom pad site',pitboxes:'1',run:'point-to-point',author:'Padwork',version:'0.1'},null,2)),
  [`${slug}/data/surfaces.ini`]:strToU8('[SURFACE_0]\nKEY=ROAD\nFRICTION=1\nDAMPING=0\nWAV=\nWAV_PITCH=0\nFF_EFFECT=NULL\nDIRT_ADDITIVE=0\nBLACK_FLAG_TIME=0\nIS_VALID_TRACK=1\nSIN_HEIGHT=0\nSIN_LENGTH=0\nIS_PITLANE=0\nVIBRATION_GAIN=0\nVIBRATION_LENGTH=0\n')};
- for(const [index,item] of layout.items.entries()) if(item.kind==='cone'||item.kind==='pointer') files[`texture/cone_${String(index).padStart(4,'0')}.png`]=coneTexturePNG(coneTexture(item.id));
+ files['cone-assets.json']=strToU8(JSON.stringify({cone:natsCone.cone,pointer:natsCone.pointer,tints:Object.fromEntries(layout.items.map((item,index)=>[index,coneTint(item.id)]))}));
+ files['texture/ConePaintTexture.png']=natsTexturePNG();
+ files['ASSET_CREDITS.txt']=strToU8(assetAttribution);
  return {slug,files,zip:zipSync(files)};
 }

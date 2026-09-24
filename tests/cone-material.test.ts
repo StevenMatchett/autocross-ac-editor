@@ -20,10 +20,12 @@ test('PNG contains lossless RGBA texture pixels',()=>{
  const idatLength=view.getUint32(33);const raw=unzlibSync(png.subarray(41,41+idatLength));
  for(let y=0;y<texture.height;y++){const offset=y*(texture.width*4+1);assert.equal(raw[offset],0);assert.deepEqual(raw.subarray(offset+1,offset+1+texture.width*4),texture.pixels.subarray(y*texture.width*4,(y+1)*texture.width*4));}
 });
-test('export preserves textures when cones move or reorder',()=>{
+test('export bundles original Nationals texture and stable per-cone tints',()=>{
  const l=completeLayout();const a=buildExport(l);const first=l.items[2];const second=l.items[3];
- first.x+=1;l.items[2]=second;l.items[3]=first;
- const b=buildExport(l);
- assert.deepEqual(a.files['texture/cone_0002.png'],b.files['texture/cone_0003.png']);
- const files=unzipSync(a.zip);assert.equal(Object.keys(files).filter(k=>k.endsWith('.png')).length,l.items.filter(i=>i.kind==='cone'||i.kind==='pointer').length);
+ first.x+=1;l.items[2]=second;l.items[3]=first;const b=buildExport(l);
+ assert.deepEqual(a.files['texture/ConePaintTexture.png'],b.files['texture/ConePaintTexture.png']);
+ const decode=(bundle:ReturnType<typeof buildExport>)=>JSON.parse(new TextDecoder().decode(bundle.files['cone-assets.json']));
+ assert.equal(decode(a).tints['2'],decode(b).tints['3']);
+ const files=unzipSync(a.zip);assert.equal(Object.keys(files).filter(k=>k.endsWith('.png')).length,1);
+ assert.ok(files['ASSET_CREDITS.txt']);
 });

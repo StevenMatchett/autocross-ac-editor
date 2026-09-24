@@ -1,8 +1,9 @@
+import {natsCone} from './nats-assets';
 import './style.css';
 import {rotatePoint,fitView} from './view';
 import {coneColor} from './cone-material';
 import {createIcons, MousePointer2, Triangle, Flag, MapPin, Hand, Undo2, Redo2, Download, Upload, Plus, Minus, Maximize, Box, X, Save, Grid2X2, Car} from 'lucide';
-import {PAD,FOOT,CONE_BASE,CONE_HEIGHT,POINTER_TILT,emptyLayout,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
+import {PAD,FOOT,CONE_BASE,emptyLayout,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
 import {buildExport,download} from './export';
 const $=<T extends HTMLElement=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const icon=(name:string)=>`<i data-lucide="${name}"></i>`;
@@ -68,7 +69,7 @@ function draw(){
  ctx.fillStyle=orange;ctx.fillRect(-CONE_BASE/2,-CONE_BASE/2,CONE_BASE,CONE_BASE);ctx.fillStyle=orange;ctx.beginPath();ctx.arc(0,0,.115,0,Math.PI*2);ctx.fill();
  if(scale<22){ctx.strokeStyle='#d7672c';ctx.lineWidth=1.5/scale;ctx.beginPath();ctx.arc(0,0,3/scale,0,Math.PI*2);ctx.stroke();}
  }else if(i.kind==='pointer'){
- const length=(CONE_HEIGHT-.02)*Math.cos(POINTER_TILT);
+ const length=-natsCone.pointer.bounds[2][0];
  const half=CONE_BASE/2;
  // Draw the real footprint, with a larger direction locator at site scale.
  ctx.fillStyle=`rgb(${coneColor(i.id).join(',')})`;ctx.fillRect(-half,-.02,CONE_BASE,.04);
