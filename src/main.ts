@@ -1,3 +1,4 @@
+import {venueLayout,prepareVenue,getRoad,groundHeight,venueURL,venueModel} from './venue';
 import {natsCone} from './nats-assets';
 import './style.css';
 import {rotatePoint,fitView} from './view';
@@ -11,16 +12,16 @@ let layout=emptyLayout();try{const stored=localStorage.getItem('padwork');if(sto
 let tool='cone',selected:string|null=null,scale=5,ox=0,oy=0,snapStep=FOOT,grid=true;
 let history:string[]=[],future:string[]=[];
 $('#app').innerHTML=`<header>
-  <a class="brand" href="/" aria-label="Padwork home">${icon('grid-2x2')}<span>Padwork</span></a>
+  <a class="brand" href="${import.meta.env.BASE_URL}" aria-label="Padwork home">${icon('grid-2x2')}<span>Padwork</span></a>
   <input id="course-name" aria-label="Course name" maxlength="120">
   <div class="header-actions"><span id="save-state">Saved locally</span><button id="open">${icon('upload')} Open</button><button id="save">${icon('save')} Save</button><button class="primary" id="export">${icon('download')} Export</button></div>
 </header>
 <div class="workspace">
   <aside class="left">
-    <section class="site-settings"><h2>Site</h2><p id="site-size"></p><div class="two-fields"><label>Columns<input type="number" id="columns" min="4" max="80"></label><label>Rows<input type="number" id="rows" min="4" max="80"></label></div><p class="subtle">Each pad is 25 × 25 ft.</p></section>
+    <section class="site-settings"><h2>Site</h2><p id="site-size"></p><div class="two-fields"><label>Columns<input type="number" id="columns" min="4" max="160"></label><label>Rows<input type="number" id="rows" min="4" max="160"></label></div><p class="subtle"><span id="grid-description">Each pad is 25 × 25 ft.</span></p></section>
     <section class="placement"><label class="setting">Snap<select id="snap"><option value="0">Off</option><option value="1" selected>1 ft</option><option value="5">5 ft</option><option value="25">25 ft</option></select></label><label class="setting">Show pad grid<input type="checkbox" id="grid" checked></label></section>
     <section id="inspector" hidden><div id="properties"></div></section>
-    <div class="sidebar-bottom"><button id="demo" title="2026 Solo Nationals East course">Load example</button><button id="new">New course</button></div>
+    <div class="sidebar-bottom"><button id="venue" title="Open the Lincoln Nationals mod venue">Load venue</button><button id="demo" title="2026 Solo Nationals East course">Load example</button><button id="new">New course</button></div>
   </aside>
   <main>
     <div class="toolbar"><div class="tools" role="toolbar" aria-label="Drawing tools">${[['select','mouse-pointer-2','Select','V'],['cone','triangle','Cone','C'],['pointer','triangle','Pointer','P'],['stage','car','Stage','G'],['start','map-pin','Start','S'],['finish','flag','Finish','F'],['pan','hand','Pan','H']].map(([id,ic,label,key])=>`<button data-tool="${id}" title="${label} (${key})" aria-label="${label}" aria-pressed="false">${icon(ic)}<span>${label}</span></button>`).join('')}</div><div class="history"><button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">${icon('undo-2')}</button><button id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">${icon('redo-2')}</button></div><div class="view-actions"><button id="drive" class="primary" title="Drive course (WASD)">${icon('car')}<span>Drive</span></button><button id="preview" aria-label="3D preview" title="3D preview">${icon('box')}<span>3D preview</span></button><button id="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button></div></div>
@@ -36,12 +37,19 @@ $('#app').innerHTML=`<header>
 createIcons({icons:{MousePointer2,Triangle,Flag,MapPin,Hand,Undo2,Redo2,Download,Upload,Plus,Minus,Maximize,Box,X,Save,Grid2X2, Car}});
 const canvas=$<HTMLCanvasElement>('#map'),ctx=canvas.getContext('2d')!;
 let width=0,height=0,autoFit=true;
+const venueMap=new Image();venueMap.onload=()=>draw();
+function ensureVenueMap(){if(!venueMap.src)venueMap.src=venueURL('map.jpg');}
+if(layout.venue){ensureVenueMap();prepareVenue().then(()=>draw()).catch(error=>toast(error.message));}
 function toast(message:string){$('#toast').textContent=message;$('#toast').classList.add('visible');setTimeout(()=>$('#toast').classList.remove('visible'),4000);}
 function remember(){history.push(JSON.stringify(layout));if(history.length>100)history.shift();future=[];}
 function persist(){try{localStorage.setItem('padwork',JSON.stringify(layout));$('#save-state').textContent='Saved locally';}catch{$('#save-state').textContent='Storage full — save a file';}}
 function change(){persist();sync();draw();}
 function setTool(t:string){tool=t;document.querySelectorAll<HTMLElement>('[data-tool]').forEach(e=>{const active=e.dataset.tool===t;e.classList.toggle('active',active);e.setAttribute('aria-pressed',String(active));});$('#tool-hint').textContent=({cone:'Click to place; drag a cone to move',pointer:'Click to place; drag to move; R to rotate',stage:'Click to place staging; R to set driving direction',start:'Click to place the timing start',finish:'Click to place finish',select:'Select an object to move it',pan:'Drag to pan'} as Record<string,string>)[t];canvas.style.cursor=t==='pan'?'grab':t==='select'?'default':'crosshair';}
 function sync(){
+ const imported=!!layout.venue;
+ if(imported)ensureVenueMap();
+ for(const axis of ['columns','rows'])$<HTMLInputElement>('#'+axis).disabled=imported;
+ $('#grid-description').textContent=imported?'Lincoln venue · 25 ft reference grid':'Each pad is 25 × 25 ft.';
  $('.compass').style.transform=`rotate(${layout.viewAngle??0}deg)`;
  $<HTMLInputElement>('#course-name').value=layout.name;$<HTMLInputElement>('#columns').value=String(layout.columns);$<HTMLInputElement>('#rows').value=String(layout.rows);
  $('#site-size').textContent=`${layout.columns*25} × ${layout.rows*25} ft`;
@@ -50,15 +58,17 @@ function sync(){
  $<HTMLButtonElement>('#undo').disabled=!history.length;$<HTMLButtonElement>('#redo').disabled=!future.length;
  const item=layout.items.find(i=>i.id===selected);
  $('#inspector').hidden=!item;
- $('#properties').innerHTML=item?`<h2 class="selected-title">${item.kind==='pointer'?'Pointer cone':item.kind==='cone'?'Traffic cone':item.kind==='stage'?'Staging point':item.kind==='start'?'Start line':'Finish line'}</h2><div class="two-fields"><label>X (ft)<input id="item-x" type="number" min="0" max="${layout.columns*25}" step="0.1" value="${(item.x/FOOT).toFixed(1)}"></label><label>Y (ft)<input id="item-z" type="number" min="0" max="${layout.rows*25}" step="0.1" value="${(item.z/FOOT).toFixed(1)}"></label></div><label class="setting">Heading (°)<input id="item-angle" type="number" step="15" value="${item.angle}"></label><div class="object-actions"><button id="rotate">Rotate 15°</button><button id="delete" class="danger">Delete</button></div><p class="subtle">${item.kind==='stage'?'Car spawn; arrow points forward':item.kind==='pointer'?'18 in cone, resting on its side':item.kind==='cone'?'18 in tall; 11 in base (assumed)':`${((item.width??6.096)/FOOT).toFixed(1)} ft gate; arrow points forward`}</p>`:'';
- if(item){for(const axis of ['x','z','angle'] as const){$<HTMLInputElement>('#item-'+axis).onchange=e=>{const n=Number((e.target as HTMLInputElement).value);if(!Number.isFinite(n)){sync();return;}remember();item[axis]=axis==='angle'?((n%360)+360)%360:Math.max(0,Math.min(n*FOOT,(axis==='x'?layout.columns:layout.rows)*PAD));change();};}$('#rotate').onclick=rotate;$('#delete').onclick=remove;}
+ $('#properties').innerHTML=item?`<h2 class="selected-title">${item.kind==='pointer'?'Pointer cone':item.kind==='cone'?'Traffic cone':item.kind==='stage'?'Staging point':item.kind==='start'?'Start line':'Finish line'}</h2><div class="two-fields"><label>X (ft)<input id="item-x" type="number" min="0" max="${layout.columns*25}" step="0.1" value="${(item.x/FOOT).toFixed(1)}"></label><label>Y (ft)<input id="item-z" type="number" min="0" max="${layout.rows*25}" step="0.1" value="${(item.z/FOOT).toFixed(1)}"></label></div><label class="setting">Heading (°)<input id="item-angle" type="number" step="15" value="${item.angle}"></label><div class="object-actions"><button id="rotate">Rotate 15°</button><button id="delete" class="danger">Delete</button></div><p class="subtle">${item.kind==='stage'?'Car spawn; arrow points forward':item.kind==='pointer'?'18 in cone, resting on its side':item.kind==='cone'?'18 in tall; Nationals mod cone':`${((item.width??6.096)/FOOT).toFixed(1)} ft gate; arrow points forward`}</p>`:'';
+ if(item){for(const axis of ['x','z','angle'] as const){$<HTMLInputElement>('#item-'+axis).onchange=e=>{const n=Number((e.target as HTMLInputElement).value);if(!Number.isFinite(n)){sync();return;}if(layout.venue&&axis!=='angle'){const point={x:item.x,z:item.z,[axis]:n*FOOT};if(getRoad()?.height(point.x,point.z)==null){toast('Keep objects on the venue driving surface.');sync();return;}}remember();item[axis]=axis==='angle'?((n%360)+360)%360:Math.max(0,Math.min(n*FOOT,(axis==='x'?layout.columns:layout.rows)*PAD));change();};}$('#rotate').onclick=rotate;$('#delete').onclick=remove;}
 }
 const viewAngle=()=>(layout.viewAngle??0)*Math.PI/180;
 function fit(){autoFit=true;({scale,ox,oy}=fitView(width,height,layout.columns*PAD,layout.rows*PAD,viewAngle()));draw();}
 function draw(){
  ctx.clearRect(0,0,width,height);ctx.fillStyle='#edf0f2';ctx.fillRect(0,0,width,height);ctx.save();ctx.translate(ox,oy);ctx.rotate(viewAngle());ctx.scale(scale,scale);
  const w=layout.columns*PAD,h=layout.rows*PAD;ctx.fillStyle='#d9dcdd';ctx.fillRect(0,0,w,h);
- for(let y=0;y<layout.rows;y++)for(let x=0;x<layout.columns;x++){const c=213+((x*7+y*3)%5)*2;ctx.fillStyle=`rgb(${c},${c+2},${c+3})`;ctx.fillRect(x*PAD,y*PAD,PAD,PAD);}
+ if(layout.venue){
+ if(venueMap.complete&&venueMap.naturalWidth)ctx.drawImage(venueMap,0,0,w,h);
+ }else for(let y=0;y<layout.rows;y++)for(let x=0;x<layout.columns;x++){const c=213+((x*7+y*3)%5)*2;ctx.fillStyle=`rgb(${c},${c+2},${c+3})`;ctx.fillRect(x*PAD,y*PAD,PAD,PAD);}
  if(grid){ctx.lineWidth=1/scale;ctx.strokeStyle='#bac1c5';ctx.beginPath();for(let x=0;x<=layout.columns;x++){ctx.moveTo(x*PAD,0);ctx.lineTo(x*PAD,h);}for(let y=0;y<=layout.rows;y++){ctx.moveTo(0,y*PAD);ctx.lineTo(w,y*PAD);}ctx.stroke();}
  ctx.strokeStyle='#929da5';ctx.lineWidth=1.5/scale;ctx.strokeRect(0,0,w,h);
  ctx.fillStyle='#66727d';ctx.font=`${10/scale}px monospace`;ctx.textAlign='center';for(let x=0;x<layout.columns;x+=Math.max(1,Math.ceil(30/(PAD*scale))))ctx.fillText(String(x+1).padStart(2,'0'),(x+.5)*PAD,-9/scale);
@@ -96,8 +106,9 @@ canvas.onpointerdown=e=>{const p=pos(e),w=world(p);canvas.setPointerCapture(e.po
  const hit=hitTest(w);
  if(hit||tool==='select'){selected=hit?.id??null;if(hit){drag={...p,ox,oy,item:hit,changed:false,offsetX:hit.x-w.x,offsetZ:hit.z-w.z};canvas.style.cursor='grabbing';}sync();draw();return;}
  if(w.x<0||w.z<0||w.x>layout.columns*PAD||w.z>layout.rows*PAD)return;
+ if(layout.venue&&getRoad()?.height(w.x,w.z)==null){toast('Place objects on the venue driving surface.');return;}
  remember();if(tool==='stage'||tool==='start'||tool==='finish')layout.items=layout.items.filter(i=>i.kind!==tool);const item:Item={id:crypto.randomUUID(),kind:tool as Item['kind'],...bounded(w),angle:0};layout.items.push(item);selected=item.id;change();};
-canvas.onpointermove=e=>{const p=pos(e),w=world(p);$('#coordinates').textContent=`X ${(w.x/FOOT).toFixed(1)} ft   Y ${(w.z/FOOT).toFixed(1)} ft`;if(!drag){canvas.style.cursor=tool==='pan'||space?'grab':hitTest(w)?'grab':tool==='select'?'default':'crosshair';return;}if(drag.item){if(!drag.changed && Math.hypot(p.x-drag.x,p.y-drag.y)<3)return;if(!drag.changed){remember();drag.changed=true;}Object.assign(drag.item,bounded({x:w.x+drag.offsetX,z:w.z+drag.offsetZ}));}else{autoFit=false;ox=drag.ox+p.x-drag.x;oy=drag.oy+p.y-drag.y;}draw();};
+canvas.onpointermove=e=>{const p=pos(e),w=world(p);$('#coordinates').textContent=`X ${(w.x/FOOT).toFixed(1)} ft   Y ${(w.z/FOOT).toFixed(1)} ft`;if(!drag){canvas.style.cursor=tool==='pan'||space?'grab':hitTest(w)?'grab':tool==='select'?'default':'crosshair';return;}if(drag.item){if(!drag.changed && Math.hypot(p.x-drag.x,p.y-drag.y)<3)return;if(!drag.changed){remember();drag.changed=true;}const next=bounded({x:w.x+drag.offsetX,z:w.z+drag.offsetZ});if(!layout.venue||getRoad()?.height(next.x,next.z)!=null)Object.assign(drag.item,next);}else{autoFit=false;ox=drag.ox+p.x-drag.x;oy=drag.oy+p.y-drag.y;}draw();};
 canvas.onpointerup=canvas.onpointercancel=()=>{if(drag?.changed)change();drag=null;canvas.style.cursor=tool==='pan'?'grab':tool==='select'?'default':'crosshair';};
 function zoom(factor:number,p={x:width/2,y:height/2}){autoFit=false;const w=world(p);scale=Math.max(.5,Math.min(100,scale*factor));const projected=rotatePoint({x:w.x,y:w.z},viewAngle());ox=p.x-projected.x*scale;oy=p.y-projected.y*scale;draw();}
 canvas.onwheel=e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.001),pos(e));};
@@ -108,30 +119,31 @@ window.onkeydown=e=>{if((e.target as HTMLElement).matches('input,select,textarea
 document.querySelectorAll<HTMLElement>('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool!));
 $('#zoom-in').onclick=()=>zoom(1.25);$('#zoom-out').onclick=()=>zoom(.8);$('#fit').onclick=fit;$('#undo').onclick=()=>undo();$('#redo').onclick=()=>undo(true);
 $<HTMLInputElement>('#course-name').onchange=e=>{remember();layout.name=(e.target as HTMLInputElement).value.trim()||'Untitled course';change();};
-for(const axis of ['columns','rows'] as const)$<HTMLInputElement>('#'+axis).onchange=e=>{const n=Number((e.target as HTMLInputElement).value);if(!Number.isInteger(n)||n<4||n>80){toast('Use a whole number between 4 and 80 pads.');sync();return;}if(layout.items.some(i=>(axis==='columns'?i.x:i.z)>n*PAD)){toast('Move objects inside the smaller site before resizing.');sync();return;}remember();layout[axis]=n;change();fit();};
+for(const axis of ['columns','rows'] as const)$<HTMLInputElement>('#'+axis).onchange=e=>{const n=Number((e.target as HTMLInputElement).value);if(!Number.isInteger(n)||n<4||n>160){toast('Use a whole number between 4 and 160 pads.');sync();return;}if(layout.items.some(i=>(axis==='columns'?i.x:i.z)>n*PAD)){toast('Move objects inside the smaller site before resizing.');sync();return;}remember();layout[axis]=n;change();fit();};
 $<HTMLSelectElement>('#snap').onchange=e=>snapStep=Number((e.target as HTMLSelectElement).value)*FOOT;
 $<HTMLInputElement>('#grid').onchange=e=>{grid=(e.target as HTMLInputElement).checked;draw();};
 $('#help').onclick=()=>$<HTMLDialogElement>('#help-dialog').showModal();
 $('#close-help').onclick=()=>$<HTMLDialogElement>('#help-dialog').close();
 $('#save').onclick=()=>download(JSON.stringify(layout,null,2),'course.padwork.json','application/json');
-$('#open').onclick=()=>$<HTMLInputElement>('#file').click();$<HTMLInputElement>('#file').onchange=async e=>{const input=e.target as HTMLInputElement;try{const file=input.files?.[0];if(!file)return;if(file.size>5e6)throw Error('Layout file is too large.');const loaded=validateLayout(JSON.parse(await file.text()));remember();layout=loaded;selected=null;change();fit();toast('Layout opened.');}catch(err){toast(err instanceof Error?err.message:'Could not open layout.');}input.value='';};
+$('#open').onclick=()=>$<HTMLInputElement>('#file').click();$<HTMLInputElement>('#file').onchange=async e=>{const input=e.target as HTMLInputElement;try{const file=input.files?.[0];if(!file)return;if(file.size>5e6)throw Error('Layout file is too large.');const loaded=validateLayout(JSON.parse(await file.text()));if(loaded.venue)await prepareVenue();remember();layout=loaded;selected=null;change();fit();toast('Layout opened.');}catch(err){toast(err instanceof Error?err.message:'Could not open layout.');}input.value='';};
+$('#venue').onclick=async()=>{const button=$<HTMLButtonElement>('#venue');button.disabled=true;try{await prepareVenue();remember();layout=venueLayout();selected=null;grid=false;$<HTMLInputElement>('#grid').checked=false;ensureVenueMap();change();fit();toast('Lincoln venue loaded. Undo restores your previous course.');}catch(error){toast((error as Error).message);}finally{button.disabled=false;}};
 $('#demo').onclick=()=>{remember();layout=demoLayout();selected=null;change();fit();toast('Example loaded. Undo restores your previous course.');};$('#new').onclick=()=>{remember();layout=emptyLayout();selected=null;change();fit();};
-$('#export').onclick=()=>{if(['stage','start','finish'].some(k=>!layout.items.some(i=>i.kind===k))){toast('Place staging, start, and finish before exporting.');return;}$<HTMLDialogElement>('#export-dialog').showModal();};$('#close-export').onclick=()=>$<HTMLDialogElement>('#export-dialog').close();$('#download-package').onclick=()=>{try{const {slug,zip}=buildExport(layout);download(new Uint8Array(zip).buffer,slug+'-source.zip');toast('Source package downloaded.');}catch(e){toast((e as Error).message);}};
+$('#export').onclick=()=>{if(['stage','start','finish'].some(k=>!layout.items.some(i=>i.kind===k))){toast('Place staging, start, and finish before exporting.');return;}$<HTMLDialogElement>('#export-dialog').showModal();};$('#close-export').onclick=()=>$<HTMLDialogElement>('#export-dialog').close();$('#download-package').onclick=async()=>{const button=$<HTMLButtonElement>('#download-package');button.disabled=true;button.textContent='Preparing ZIP…';const snapshot=structuredClone(layout);try{const model=snapshot.venue?await venueModel():undefined;const {slug,zip}=buildExport(snapshot,model);download(new Uint8Array(zip).buffer,slug+'-source.zip');toast('Source package downloaded.');}catch(e){toast((e as Error).message);}finally{button.disabled=false;button.textContent='Download ZIP';}};
 $('#drive').onclick=async ()=>{
  const button=$<HTMLButtonElement>('#drive');button.disabled=true;
- try{const {openDrivingTester}=await import('./drive-tester');openDrivingTester(layout);}
+ try{const {openDrivingTester}=await import('./drive-tester');await openDrivingTester(structuredClone(layout));}
  catch(error){toast(error instanceof Error?error.message:'Could not start the driving tester.');}
  finally{button.disabled=false;}
 };
-let cleanupPreview=()=>{};
+let cleanupPreview=()=>{},previewRequest=0;
 $('#preview').onclick=async ()=>{
- const dialog=$<HTMLDialogElement>('#preview-dialog');dialog.showModal();const host=$('#three');
- try{const [THREE,{OrbitControls}]=await Promise.all([import('three'),import('three/addons/controls/OrbitControls.js')]);if(!dialog.open)return;const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(host.clientWidth,host.clientHeight);host.append(renderer.domElement);
- const {createCourseScene,disposeScene}=await import('./course-scene');if(!dialog.open){renderer.dispose();host.replaceChildren();return;}
- const scene=createCourseScene(layout);const camera=new THREE.PerspectiveCamera(45,host.clientWidth/host.clientHeight,.05,5000);const w=layout.columns*PAD,h=layout.rows*PAD;camera.position.set(w*.55,Math.max(w,h)*.65,h*1.15);
- const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(w/2,0,h/2);const focus=layout.items.find(i=>i.id===selected&&(i.kind==='cone'||i.kind==='pointer'));if(focus){controls.target.set(focus.x,.2,focus.z);camera.position.set(focus.x+.9,.8,focus.z+1.1);}controls.update();
+ const request=++previewRequest;const dialog=$<HTMLDialogElement>('#preview-dialog');dialog.showModal();const host=$('#three');host.textContent=layout.venue?'Loading Lincoln venue…':'';let loadingRenderer:import('three').WebGLRenderer|undefined;
+ try{const [THREE,{OrbitControls}]=await Promise.all([import('three'),import('three/addons/controls/OrbitControls.js')]);if(!dialog.open||request!==previewRequest)return;const renderer=new THREE.WebGLRenderer({antialias:true});loadingRenderer=renderer;renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(host.clientWidth,host.clientHeight);
+ const {createCourseScene,disposeScene}=await import('./course-scene');if(!dialog.open||request!==previewRequest){renderer.dispose();return;}
+ const scene=await createCourseScene(structuredClone(layout));if(!dialog.open||request!==previewRequest){disposeScene(scene);renderer.dispose();return;}host.replaceChildren(renderer.domElement);const camera=new THREE.PerspectiveCamera(45,host.clientWidth/host.clientHeight,.05,5000);const w=layout.columns*PAD,h=layout.rows*PAD;camera.position.set(w*.55,Math.max(w,h)*.65,h*1.15);
+ const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(w/2,0,h/2);const focus=layout.items.find(i=>i.id===selected&&(i.kind==='cone'||i.kind==='pointer'));if(focus){const elevation=groundHeight(layout,focus.x,focus.z);controls.target.set(focus.x,elevation+.2,focus.z);camera.position.set(focus.x+.9,elevation+.8,focus.z+1.1);}controls.update();
  let frame=0;const render=()=>{frame=requestAnimationFrame(render);controls.update();renderer.render(scene,camera);};render();const resize=new ResizeObserver(()=>{if(!host.clientWidth)return;camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);});resize.observe(host);
  cleanupPreview=()=>{cancelAnimationFrame(frame);resize.disconnect();controls.dispose();disposeScene(scene);renderer.dispose();host.replaceChildren();};
- }catch{host.textContent='3D preview requires a browser with WebGL enabled.';cleanupPreview=()=>host.replaceChildren();}
-};$('#close-preview').onclick=()=>$<HTMLDialogElement>('#preview-dialog').close();$<HTMLDialogElement>('#preview-dialog').onclose=()=>cleanupPreview();
+ }catch(error){loadingRenderer?.dispose();if(request!==previewRequest)return;host.textContent=error instanceof Error?error.message:'Could not load 3D preview.';cleanupPreview=()=>host.replaceChildren();}
+};$('#close-preview').onclick=()=>$<HTMLDialogElement>('#preview-dialog').close();$<HTMLDialogElement>('#preview-dialog').onclose=()=>{previewRequest++;cleanupPreview();};
 sync();setTool(tool);

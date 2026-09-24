@@ -16,7 +16,7 @@ The repository supplies compiled KN5 files through Git LFS, rather than Blender/
 | `lincoln_grass.kn5` | Grass model; 135.94 MB |
 | `lincoln_trees.kn5` | Trees; 19.95 MB, placed at `143,0,-249` |
 | `lincoln_scenery_objects.kn5` | Scenery; 14.11 MB |
-| `lincoln_*mpt.kn5` | Additional shared venue models; contents not yet inspected |
+| `lincoln_*mpt.kn5` | Surrounding photogrammetry and buildings |
 
 All KN5 files together total approximately 322 MB. Do not infer asset contents from a successful ordinary clone: without Git LFS those files are small pointer documents. The actual 2021 course binary was downloaded and parsed locally to verify its contents.
 
@@ -35,17 +35,30 @@ Materials use `ksPerPixel` with embedded `ConePaintTexture.dds` and `ConeGreenTe
 
 The first upright west cone's 36 vertices span approximately 0.292 × 0.458 × 0.292 m. This is close to the editor's 18-inch height, but its base is wider than our assumed 0.28 m base. Imported geometry and collision bounds must agree. The original mesh elevations also vary across the course; retain the editor's flat-ground requirement when making placeable templates.
 
-## Integration approach
-
-1. Extract reusable upright/pointer templates and their texture for the browser preview and tester. Preserve UVs and normalize height to the editor's exact 0.4572 m requirement.
-2. Use the same templates in the Blender export, with matching physical bounds and fixed collision names.
-3. Keep shared venue KN5 files separate from newly generated course/timing files for a mod-compatible export. Coordinate alignment needs verification before claiming compatibility; their origin is different from our positive-coordinate editor site.
-4. Treat full venue rendering as a separate browser optimization task. The existing compiled venue is much larger than the cone assets, and the actual road geometry has not yet been inspected.
-
-No license file or reuse terms were found in the inspected tree, and GitHub reports `license: null`. The project owner explicitly confirmed permission to redistribute the assets on 2026-09-24. Only the extracted cone templates and orange texture are bundled; the full KN5 download remains in ignored `tmp/`. This confirmation is not a general upstream license grant.
+No license file or reuse terms were found in the inspected tree, and GitHub reports `license: null`. The project owner explicitly confirmed permission to redistribute the assets on 2026-09-24. Converted cone and venue assets are bundled; the original KN5 downloads remain in ignored `tmp/`. This confirmation is not a general upstream license grant.
 
 ## Implemented cone integration
 
 `src/assets/nats-cone.json` contains separate 36-vertex / 44-triangle upright and pointer templates plus a PNG conversion of the original DDS. `scripts/extract-nats-cone.py` recreates the asset from the pinned 2021 file and verifies its SHA-256 before conversion; it requires Python and Pillow. KN5 parsing follows the documented layout in [kn5-obj-converter](https://github.com/MarvinSt/kn5-obj-converter/blob/main/convert.py); no converter implementation is bundled.
 
 The browser and Blender export share positions, normals, UVs, and texture. The source UVs use a repeated tile, so browser wrapping must remain enabled. Upright height is exactly 0.4572 m; normalized base width is about 0.2914 m. Pointer geometry retains the source tilt and rests on the flat ground with its tip along heading zero. Collision bounds are computed from these templates. Per-cone tint is stable across moves and saves; the Blender material uses a multiply node (ksEditor material settings still need verification).
+
+## Implemented venue integration
+
+All nine shared models from `models_2021_east.ini` are included in `public/venue/lincoln.glb.gz`; the original year's course and timing files are excluded. The tree model receives the INI's `143,0,-249` placement. Node matrices are applied before conversion. All geometry then receives the same translation: editor X = source X + 22.86 m; editor Z = source Z + 518.16 m. Height, orientation, and scale are retained. This is a translated converted venue, not a drop-in overlay for an existing original KN5 installation.
+
+The editor uses an 84 × 74 pad bounding rectangle around the main lot. The top-down image is rendered from that same model, with north toward decreasing Z. The grid is an optional spacing guide and does not assert joint alignment. The previous 2026 PDF trace remains unchanged and separate.
+
+`road.bin.gz` preserves the road mesh triangles in editor coordinates. The runtime uses spatially indexed barycentric height queries for object placement and car height. Car footprint samples must remain on that source mesh. This models the source driving surface, not image-based pavement/grass classification. Scenery collisions and suspension physics are not simulated.
+
+The venue retains 254 meshes and 629,822 triangles. The packed browser download is about 41 MB. Diffuse imagery is resized to at most 4096 pixels for the main aerial image and 1024 for other textures; ksMultilayer detail shaders are reduced to diffuse maps, and ksTree foliage uses unlit alpha-cutout materials. Texture anisotropy improves ground-level viewing. These conversions do not claim pixel-identical Assetto Corsa rendering.
+
+Regenerate using Python with NumPy and Pillow:
+
+```sh
+python scripts/import-nats-venue.py /path/to/actual/kn5/files
+# With npm run dev and Chromium available:
+node scripts/capture-venue-map.mjs
+```
+
+The converter verifies every input hash against `src/assets/venue.json`. The original sources are available through Git LFS at the pinned commit. The export bundles the decompressed GLB and per-object surface heights; Blender imports the venue, extracts images, and creates course objects in the same coordinate frame. Surface keys retain PROAD and GRASS. Blender/ksEditor/game execution remains unverified.

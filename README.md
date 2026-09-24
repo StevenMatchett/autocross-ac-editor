@@ -87,7 +87,19 @@ Upright and pointer cones use the original geometry and `ConePaintTexture` from 
 
 ![Original Nationals upright and pointer cone assets in the browser renderer](docs/screenshots/nats-cones.png)
 
-The templates preserve the original UVs and normals, with height normalized to exactly 18 inches. The editor still uses its configurable flat concrete site; the original mod’s road, grass, trees, and scenery are not bundled. See [asset credits](ASSET_CREDITS.md) and [integration notes](docs/nats-mod-assets.md).
+The templates preserve the original UVs and normals, with height normalized to exactly 18 inches. Choose **Load venue** to use the original mod’s road, grass, trees, and surrounding scenery, or keep using a configurable flat site. See [asset credits](ASSET_CREDITS.md) and [integration notes](docs/nats-mod-assets.md).
+
+## Lincoln venue
+
+**Load venue** opens the imported Lincoln site with a staging point and no old course cones. Place your own cones and timing gates on the overhead venue image, then choose **Drive** or **3D preview**. Loading the venue is undoable; **New course** returns to a flat site.
+
+![Imported Lincoln Nationals venue in the editor](docs/screenshots/venue-editor.png)
+
+The import includes all nine shared venue models, including the paved lot, terrain, trees, fences, toilets, and nearby buildings. Original dimensions and elevations are retained. Cones, timing markers, and the driver's camera follow the source road mesh. The editor work area is fixed at 2100 × 1850 ft; scenery extends beyond it.
+
+The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 PDF example remains separate: it has not been aligned to the imported venue. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
+
+The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. Blender extracts venue textures when generating the FBX; ksEditor material setup and in-game validation remain required.
 
 ## Export to Assetto Corsa
 
@@ -125,6 +137,7 @@ With the dev server running and Chromium at `/usr/bin/chromium`:
 ```sh
 node tests/browser.mjs
 node tests/driving-browser.mjs
+node tests/venue-browser.mjs
 node scripts/capture-screenshots.mjs
 ```
 

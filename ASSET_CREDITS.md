@@ -6,4 +6,4 @@ The Padwork project owner confirmed permission to redistribute these assets on S
 
 Adaptations in Padwork: extraction of upright/pointer templates from combined course meshes, removal of course positions and headings, uniform scaling to an 18-inch upright cone, conversion of the original DDS texture to PNG, and subtle per-object brightness variation. Original UVs and normals are retained.
 
-The same attribution is included as `ASSET_CREDITS.txt` in generated track source packages. The mod's venue, grass, trees, and scenery are not included.
+The same attribution is included as `ASSET_CREDITS.txt` in generated track source packages. The imported Lincoln venue also uses all nine shared model files listed with their SHA-256 digests in `src/assets/venue.json`. Their geometry and textures are converted to glTF, textures resized for the web, and source shaders approximated. No source course cones or timing layouts are included with the venue.

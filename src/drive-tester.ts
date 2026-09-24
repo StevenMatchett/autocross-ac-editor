@@ -1,21 +1,30 @@
+import {prepareVenue,getRoad,groundHeight} from './venue';
 import {normalizeSetup,SETUP_FIELDS,SETUP_STORAGE} from './car-setup';
 import * as THREE from 'three';
 import {createCourseScene,disposeScene} from './course-scene';
 import {CAR,DrivingSimulation,released,type Controls} from './driving';
 import type {Layout} from './model';
 
-export function openDrivingTester(layout:Layout){
+export async function openDrivingTester(layout:Layout){
+ if(layout.venue)await prepareVenue();
  let saved:unknown;
  try{saved=JSON.parse(localStorage.getItem(SETUP_STORAGE)??'null');}catch{saved=null;}
- const simulation=new DrivingSimulation(layout,normalizeSetup(saved));
+ const simulation=new DrivingSimulation(layout,normalizeSetup(saved),getRoad());
  const dialog=document.createElement('dialog');dialog.id='drive-dialog';dialog.setAttribute('aria-label','Drive course');
  dialog.innerHTML=`<div class="drive-top"><strong>Drive course</strong><div><button id="drive-setup-toggle" aria-expanded="false" aria-controls="drive-setup">Car setup</button><button id="drive-pause">Pause</button><button id="drive-reset">Reset <kbd>R</kbd></button><button id="drive-close">Back to editor <kbd>Esc</kbd></button></div></div><div id="drive-viewport"><section id="drive-setup" aria-label="Car setup" hidden><div class="drive-setup-heading"><strong>Car setup</strong><button id="drive-setup-close" aria-label="Close car setup">×</button></div>${SETUP_FIELDS.map(f=>`<label for="setup-${f.key}">${f.label}<output id="value-${f.key}" for="setup-${f.key}"></output></label><input id="setup-${f.key}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" data-setup="${f.key}">`).join('')}<button id="drive-setup-defaults">Restore defaults</button></section><div id="drive-message" role="status"></div><div class="drive-instruments"><div><strong id="drive-speed">0</strong><span>mph</span><b id="drive-gear">N</b></div><div class="drive-timing"><span id="drive-run-state">Staged</span><strong id="drive-time">0.000</strong><small>s</small></div></div><div class="drive-touch" aria-label="Driving controls"><button data-control="left" aria-label="Steer left">A</button><button data-control="right" aria-label="Steer right">D</button><button data-control="backward" aria-label="Brake and reverse">S</button><button data-control="forward" aria-label="Accelerate">W</button></div></div><div class="drive-help"><span><kbd>W</kbd> Accelerate <kbd>S</kbd> Brake / reverse <kbd>A</kbd> <kbd>D</kbd> Steer</span><span>Course tester · simplified handling</span></div>`;
  document.body.append(dialog);dialog.showModal();
  const host=dialog.querySelector<HTMLElement>('#drive-viewport')!;
+ dialog.querySelector('#drive-message')!.textContent=layout.venue?'Loading Lincoln venue…':'';
+ dialog.querySelectorAll<HTMLButtonElement>('button:not(#drive-close)').forEach(button=>button.disabled=true);
+ dialog.querySelector('#drive-close')!.addEventListener('click',()=>dialog.close());
  let renderer:THREE.WebGLRenderer;
  try{renderer=new THREE.WebGLRenderer({antialias:true});}
  catch{dialog.close();dialog.remove();throw Error('Driving requires WebGL. Enable hardware acceleration in your browser.');}
- const scene=createCourseScene(simulation.layout);scene.background=new THREE.Color('#b8cbd8');scene.fog=new THREE.Fog('#c8d2d6',150,700);
+ let scene:THREE.Scene;
+ try{scene=await createCourseScene(simulation.layout);}catch(error){renderer.dispose();dialog.close();dialog.remove();throw error;}
+ if(!dialog.open){disposeScene(scene);renderer.dispose();dialog.remove();return;}
+ dialog.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.disabled=false);
+ scene.background=new THREE.Color('#b8cbd8');scene.fog=new THREE.Fog('#c8d2d6',150,700);
  const camera=new THREE.PerspectiveCamera(72,1,.03,1200);
  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(host.clientWidth,host.clientHeight);host.prepend(renderer.domElement);
  renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','First-person driving view');
@@ -71,7 +80,7 @@ export function openDrivingTester(layout:Layout){
  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause(true);},options);
  dialog.querySelector('#drive-reset')!.addEventListener('click',reset,options);
  pauseButton.addEventListener('click',()=>{if(paused)showSetup(false);pause(!paused);renderer.domElement.focus();},options);
- dialog.querySelector('#drive-close')!.addEventListener('click',()=>dialog.close(),options);
+
  for(const button of dialog.querySelectorAll<HTMLElement>('[data-control]')){
   const control=button.dataset.control as keyof Controls;
   button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);if(!paused){controls[control]=true;button.classList.add('pressed');}},options);
@@ -81,7 +90,7 @@ export function openDrivingTester(layout:Layout){
   speed.textContent=String(Math.round(Math.abs(simulation.speed)*2.236936));gear.textContent=simulation.speed<-.05?'R':simulation.speed>.05?'D':'N';
   time.textContent=simulation.elapsed.toFixed(3);
   state.textContent=simulation.finishedAt!==null?'Finished':simulation.startedAt!==null?'Running':simulation.layout.items.some(i=>i.kind==='start')?'Before start':'Free drive';
-  message.textContent=contextLost?'Graphics context lost. Return to the editor and reopen Drive.':paused?'Paused':simulation.collision==='cone'?'Cone hit — stopped':simulation.collision==='boundary'?'Site edge — stopped':'';
+  message.textContent=contextLost?'Graphics context lost. Return to the editor and reopen Drive.':paused?'Paused':simulation.collision==='cone'?'Cone hit — stopped':simulation.collision==='boundary'?'Surface edge — stopped':'';
   message.hidden=!message.textContent;
  }
  const resize=new ResizeObserver(()=>{if(!host.clientWidth||!host.clientHeight)return;renderer.setSize(host.clientWidth,host.clientHeight);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();});resize.observe(host);
@@ -91,7 +100,8 @@ export function openDrivingTester(layout:Layout){
   const dt=Math.min((now-last)/1000,.05);last=now;
   if(!paused){accumulator+=dt;while(accumulator>=1/120){simulation.step(controls,1/120);accumulator-=1/120;}}
   const {x,z,heading}=simulation.pose,forward=new THREE.Vector3(Math.sin(heading),0,-Math.cos(heading));
-  camera.position.set(x-.32*Math.cos(heading),CAR.eyeHeight,z-.32*Math.sin(heading));
+  const elevation=groundHeight(simulation.layout,x,z);
+  camera.position.set(x-.32*Math.cos(heading),elevation+CAR.eyeHeight,z-.32*Math.sin(heading));
   const settle=1-Math.exp(-dt*5);
   bodyPitch+=((paused?bodyPitch:simulation.longitudinalAcceleration*.0025)-bodyPitch)*settle;
   bodyRoll+=((paused?bodyRoll:simulation.lateralAcceleration*.002)-bodyRoll)*settle;
@@ -101,7 +111,7 @@ export function openDrivingTester(layout:Layout){
   if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix();}
   wheelFace.rotation.z=-simulation.steering*12;
 
-  car.position.set(x,0,z);car.rotation.y=-heading;
+  car.position.set(x,elevation,z);car.rotation.y=-heading;
   updateHUD();renderer.render(scene,camera);
  }
  const cleanup=()=>{if(disposed)return;disposed=true;cancelAnimationFrame(frame);events.abort();resize.disconnect();clear();disposeScene(scene);renderer.dispose();renderer.forceContextLoss();dialog.remove();document.querySelector<HTMLElement>('#drive')?.focus();};

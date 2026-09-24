@@ -1,0 +1,63 @@
+{
+  "id": "lincoln",
+  "name": "Lincoln Nationals",
+  "columns": 84,
+  "rows": 74,
+  "offset": [
+    22.86,
+    0.0,
+    518.16
+  ],
+  "sourceCommit": "1742a96633537278dfc4f647a984e45fed8de647",
+  "files": [
+    {
+      "file": "lincoln_road.kn5",
+      "sha256": "f3a6d794f69cb7c02df3dfdb77890ccbea3b699a0fa92479026dfc5f449b0d51",
+      "meshes": 1
+    },
+    {
+      "file": "lincoln_038ampt.kn5",
+      "sha256": "902b2b088c5dbeb9c01e3695a95e9d9f0b7aa3cb899431c294dade4c4cbf8ae5",
+      "meshes": 20
+    },
+    {
+      "file": "lincoln_038bmpt.kn5",
+      "sha256": "b73dd1365eee8a154b4ec680f0deee266831d9af1b3254a8b8c142896a980eef",
+      "meshes": 9
+    },
+    {
+      "file": "lincoln_grass.kn5",
+      "sha256": "5ae6167fa61b6c0c570706a5790cc1b579358be4fb771773ac47c0b34927af1e",
+      "meshes": 3
+    },
+    {
+      "file": "lincoln_3mpt.kn5",
+      "sha256": "a1aa4c1c44a50ce8d4c6e08f199fccd0c63236053d413c228816da5a873c8a6c",
+      "meshes": 108
+    },
+    {
+      "file": "lincoln_1mpt.kn5",
+      "sha256": "5fbc910210f69261effc430478f0d8428b660a089c3a1ecf662da4368b9e3972",
+      "meshes": 21
+    },
+    {
+      "file": "lincoln_019mpt.kn5",
+      "sha256": "5d6f40355b136b73b4c553c092b360b51e0a386edeaf306f1fb50481460e598a",
+      "meshes": 63
+    },
+    {
+      "file": "lincoln_trees.kn5",
+      "sha256": "7aa7aa5eb455842ef8b43aaf36aa4d242fd1cd1a289b2aaf09e5e820d7cd6d0c",
+      "meshes": 20
+    },
+    {
+      "file": "lincoln_scenery_objects.kn5",
+      "sha256": "e43a7771b884a6e8593cd1c7f38a826df788529aded399d1220c58aa4675b949",
+      "meshes": 9
+    }
+  ],
+  "meshCount": 254,
+  "triangleCount": 629822,
+  "downloadBytes": 41437469,
+  "glbBytes": 57217984
+}

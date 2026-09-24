@@ -43,7 +43,7 @@ test('staging is unique and required for export; existing layouts still open',()
 });
 test('export spawns at staging and keeps timing markers separate',()=>{
  const script=strFromU8(buildExport(completeLayout()).files['build_track.py']);
- assert.match(script,/elif item\['kind'\]=='stage':\n        marker\('AC_PIT_0',x,z,a\)\n        marker\('AC_HOTLAP_START_0',x,z,a\)/);
+ assert.match(script,/elif item\['kind'\]=='stage':\n        marker\('AC_PIT_0',x,z,a,elevation\)\n        marker\('AC_HOTLAP_START_0',x,z,a,elevation\)/);
  assert.doesNotMatch(script,/x-5\*math.sin/);
 });
 

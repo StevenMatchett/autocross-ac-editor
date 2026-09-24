@@ -1,3 +1,4 @@
+import type {RoadSurface} from './road-surface';
 import {natsCone} from './nats-assets';
 import {normalizeSetup,type CarSetup} from './car-setup';
 import {PAD,type Item,type Layout} from './model';
@@ -35,7 +36,8 @@ export class DrivingSimulation {
  private spawn:Pose;
  private blockedDirection=0;
  private obstacles:Box[];
- constructor(layout:Layout,setup?:Partial<CarSetup>){
+ constructor(layout:Layout,setup?:Partial<CarSetup>,private road?:RoadSurface){
+  if(layout.venue&&!road)throw Error('Lincoln surface is not loaded. Reopen Drive.');
   this.setup=normalizeSetup(setup);
   this.layout=structuredClone(layout);
   const stage=layout.items.find(i=>i.kind==='stage');
@@ -48,7 +50,7 @@ export class DrivingSimulation {
    return {x:i.x+Math.cos(heading)*cx-Math.sin(heading)*cz,z:i.z+Math.sin(heading)*cx+Math.cos(heading)*cz,heading,halfWidth:(bounds[0][1]-bounds[0][0])/2,halfLength:(bounds[2][1]-bounds[2][0])/2};
   });
   const collision=this.blocked(this.pose);
-  if(collision)throw Error(collision==='cone'?'Staging overlaps a cone. Move staging to clear space.':'Staging is too close to the site edge. Move it inward.');
+  if(collision)throw Error(collision==='cone'?'Staging overlaps a cone. Move staging to clear space.':'Staging is outside the driving surface or too close to its edge. Move it inward.');
  }
  reset(){this.pose={...this.spawn};this.speed=0;this.steering=0;this.clock=0;this.startedAt=null;this.finishedAt=null;this.collision=null;this.blockedDirection=0;this.longitudinalAcceleration=0;this.lateralAcceleration=0;this.yawRate=0;this.throttle=0;this.brake=0;}
  get elapsed(){return this.startedAt===null?0:(this.finishedAt??this.clock)-this.startedAt;}
@@ -57,6 +59,12 @@ export class DrivingSimulation {
   const ex=Math.abs(right.x)*box.halfWidth+Math.abs(forward.x)*box.halfLength;
   const ez=Math.abs(right.z)*box.halfWidth+Math.abs(forward.z)*box.halfLength;
   if(pose.x-ex<0||pose.z-ez<0||pose.x+ex>this.layout.columns*PAD||pose.z+ez>this.layout.rows*PAD)return 'boundary';
+  if(this.layout.venue&&this.road){
+   for(const side of [-1,1])for(const end of [-1,0,1]){
+    const x=pose.x+right.x*box.halfWidth*side+forward.x*box.halfLength*end,z=pose.z+right.z*box.halfWidth*side+forward.z*box.halfLength*end;
+    if(this.road.height(x,z)===null)return 'boundary';
+   }
+  }
   for(const obstacle of this.obstacles){if(Math.abs(obstacle.x-pose.x)>3||Math.abs(obstacle.z-pose.z)>3)continue;if(overlaps(box,obstacle))return 'cone';}
   return null;
  }
