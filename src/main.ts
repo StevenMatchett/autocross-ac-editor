@@ -4,12 +4,12 @@ import './style.css';
 import {rotatePoint,fitView} from './view';
 import {coneColor} from './cone-material';
 import {createIcons, MousePointer2, Triangle, Flag, MapPin, Hand, Undo2, Redo2, Download, Upload, Plus, Minus, Maximize, Box, X, Save, Grid2X2, Car} from 'lucide';
-import {PAD,FOOT,CONE_BASE,emptyLayout,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
+import {PAD,FOOT,CONE_BASE,onVenue,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
 import {buildExport,download} from './export';
 const $=<T extends HTMLElement=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const icon=(name:string)=>`<i data-lucide="${name}"></i>`;
-let layout=emptyLayout();try{const stored=localStorage.getItem('padwork');if(stored)layout=validateLayout(JSON.parse(stored));}catch{}
-let tool='cone',selected:string|null=null,scale=5,ox=0,oy=0,snapStep=FOOT,grid=true;
+let layout=venueLayout(),restoreError='';try{const stored=localStorage.getItem('padwork');if(stored){const original=validateLayout(JSON.parse(stored));if(!original.venue)localStorage.setItem('padwork-legacy-backup',stored);layout=onVenue(original);}}catch(error){restoreError=error instanceof Error?error.message:'Could not restore the saved course.';}
+let tool='cone',selected:string|null=null,scale=5,ox=0,oy=0,snapStep=FOOT,grid=false;
 let history:string[]=[],future:string[]=[];
 $('#app').innerHTML=`<header>
   <a class="brand" href="${import.meta.env.BASE_URL}" aria-label="Padwork home">${icon('grid-2x2')}<span>Padwork</span></a>
@@ -19,9 +19,9 @@ $('#app').innerHTML=`<header>
 <div class="workspace">
   <aside class="left">
     <section class="site-settings"><h2>Site</h2><p id="site-size"></p><div class="two-fields"><label>Columns<input type="number" id="columns" min="4" max="160"></label><label>Rows<input type="number" id="rows" min="4" max="160"></label></div><p class="subtle"><span id="grid-description">Each pad is 25 × 25 ft.</span></p></section>
-    <section class="placement"><label class="setting">Snap<select id="snap"><option value="0">Off</option><option value="1" selected>1 ft</option><option value="5">5 ft</option><option value="25">25 ft</option></select></label><label class="setting">Show pad grid<input type="checkbox" id="grid" checked></label></section>
+    <section class="placement"><label class="setting">Snap<select id="snap"><option value="0">Off</option><option value="1" selected>1 ft</option><option value="5">5 ft</option><option value="25">25 ft</option></select></label><label class="setting">Show pad grid<input type="checkbox" id="grid"></label></section>
     <section id="inspector" hidden><div id="properties"></div></section>
-    <div class="sidebar-bottom"><button id="venue" title="Open the Lincoln Nationals mod venue">Load venue</button><button id="demo" title="2026 Solo Nationals East course">Load example</button><button id="new">New course</button></div>
+    <div class="sidebar-bottom"><button id="demo" title="2026 Solo Nationals East course">Load example</button><button id="new">New course</button></div>
   </aside>
   <main>
     <div class="toolbar"><div class="tools" role="toolbar" aria-label="Drawing tools">${[['select','mouse-pointer-2','Select','V'],['cone','triangle','Cone','C'],['pointer','triangle','Pointer','P'],['stage','car','Stage','G'],['start','map-pin','Start','S'],['finish','flag','Finish','F'],['pan','hand','Pan','H']].map(([id,ic,label,key])=>`<button data-tool="${id}" title="${label} (${key})" aria-label="${label}" aria-pressed="false">${icon(ic)}<span>${label}</span></button>`).join('')}</div><div class="history"><button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">${icon('undo-2')}</button><button id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">${icon('redo-2')}</button></div><div class="view-actions"><button id="drive" class="primary" title="Drive course (WASD)">${icon('car')}<span>Drive</span></button><button id="preview" aria-label="3D preview" title="3D preview">${icon('box')}<span>3D preview</span></button><button id="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button></div></div>
@@ -39,7 +39,7 @@ const canvas=$<HTMLCanvasElement>('#map'),ctx=canvas.getContext('2d')!;
 let width=0,height=0,autoFit=true;
 const venueMap=new Image();venueMap.onload=()=>draw();
 function ensureVenueMap(){if(!venueMap.src)venueMap.src=venueURL('map.jpg');}
-if(layout.venue){ensureVenueMap();prepareVenue().then(()=>draw()).catch(error=>toast(error.message));}
+if(layout.venue){ensureVenueMap();canvas.setAttribute('aria-busy','true');prepareVenue().then(()=>{canvas.setAttribute('aria-busy','false');draw();}).catch(error=>{canvas.setAttribute('aria-busy','false');toast(error.message);});}
 function toast(message:string){$('#toast').textContent=message;$('#toast').classList.add('visible');setTimeout(()=>$('#toast').classList.remove('visible'),4000);}
 function remember(){history.push(JSON.stringify(layout));if(history.length>100)history.shift();future=[];}
 function persist(){try{localStorage.setItem('padwork',JSON.stringify(layout));$('#save-state').textContent='Saved locally';}catch{$('#save-state').textContent='Storage full — save a file';}}
@@ -47,6 +47,7 @@ function change(){persist();sync();draw();}
 function setTool(t:string){tool=t;document.querySelectorAll<HTMLElement>('[data-tool]').forEach(e=>{const active=e.dataset.tool===t;e.classList.toggle('active',active);e.setAttribute('aria-pressed',String(active));});$('#tool-hint').textContent=({cone:'Click to place; drag a cone to move',pointer:'Click to place; drag to move; R to rotate',stage:'Click to place staging; R to set driving direction',start:'Click to place the timing start',finish:'Click to place finish',select:'Select an object to move it',pan:'Drag to pan'} as Record<string,string>)[t];canvas.style.cursor=t==='pan'?'grab':t==='select'?'default':'crosshair';}
 function sync(){
  const imported=!!layout.venue;
+ $('#demo').title=imported?'Load the 2026 East course on this venue':'2026 Solo Nationals East course';
  if(imported)ensureVenueMap();
  for(const axis of ['columns','rows'])$<HTMLInputElement>('#'+axis).disabled=imported;
  $('#grid-description').textContent=imported?'Lincoln venue · 25 ft reference grid':'Each pad is 25 × 25 ft.';
@@ -114,7 +115,7 @@ function zoom(factor:number,p={x:width/2,y:height/2}){autoFit=false;const w=worl
 canvas.onwheel=e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.001),pos(e));};
 function rotate(){const i=layout.items.find(i=>i.id===selected);if(i){remember();i.angle=(i.angle+15)%360;change();}}
 function remove(){if(selected){remember();layout.items=layout.items.filter(i=>i.id!==selected);selected=null;change();}}
-function undo(redo=false){const from=redo?future:history,to=redo?history:future;const s=from.pop();if(s){to.push(JSON.stringify(layout));layout=JSON.parse(s);selected=null;change();if(autoFit)fit();}}
+function undo(redo=false){const from=redo?future:history,to=redo?history:future;const s=from.pop();if(s){to.push(JSON.stringify(layout));layout=onVenue(validateLayout(JSON.parse(s)));selected=null;change();if(autoFit)fit();}}
 window.onkeydown=e=>{if((e.target as HTMLElement).matches('input,select,textarea')||document.querySelector('dialog[open]'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo(e.shiftKey);return;}if(e.code==='Space'){e.preventDefault();space=true;}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();remove();}if(e.key.toLowerCase()==='r')rotate();const t=({v:'select',c:'cone',p:'pointer',g:'stage',s:'start',f:'finish',h:'pan'} as Record<string,string>)[e.key.toLowerCase()];if(t)setTool(t);};window.onkeyup=e=>{if(e.code==='Space')space=false;};window.onblur=()=>{space=false;drag=null;};
 document.querySelectorAll<HTMLElement>('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool!));
 $('#zoom-in').onclick=()=>zoom(1.25);$('#zoom-out').onclick=()=>zoom(.8);$('#fit').onclick=fit;$('#undo').onclick=()=>undo();$('#redo').onclick=()=>undo(true);
@@ -125,9 +126,8 @@ $<HTMLInputElement>('#grid').onchange=e=>{grid=(e.target as HTMLInputElement).ch
 $('#help').onclick=()=>$<HTMLDialogElement>('#help-dialog').showModal();
 $('#close-help').onclick=()=>$<HTMLDialogElement>('#help-dialog').close();
 $('#save').onclick=()=>download(JSON.stringify(layout,null,2),'course.padwork.json','application/json');
-$('#open').onclick=()=>$<HTMLInputElement>('#file').click();$<HTMLInputElement>('#file').onchange=async e=>{const input=e.target as HTMLInputElement;try{const file=input.files?.[0];if(!file)return;if(file.size>5e6)throw Error('Layout file is too large.');const loaded=validateLayout(JSON.parse(await file.text()));if(loaded.venue)await prepareVenue();remember();layout=loaded;selected=null;change();fit();toast('Layout opened.');}catch(err){toast(err instanceof Error?err.message:'Could not open layout.');}input.value='';};
-$('#venue').onclick=async()=>{const button=$<HTMLButtonElement>('#venue');button.disabled=true;try{await prepareVenue();remember();layout=venueLayout();selected=null;grid=false;$<HTMLInputElement>('#grid').checked=false;ensureVenueMap();change();fit();toast('Lincoln venue loaded. Undo restores your previous course.');}catch(error){toast((error as Error).message);}finally{button.disabled=false;}};
-$('#demo').onclick=()=>{remember();layout=demoLayout();selected=null;change();fit();toast('Example loaded. Undo restores your previous course.');};$('#new').onclick=()=>{remember();layout=emptyLayout();selected=null;change();fit();};
+$('#open').onclick=()=>$<HTMLInputElement>('#file').click();$<HTMLInputElement>('#file').onchange=async e=>{const input=e.target as HTMLInputElement;try{const file=input.files?.[0];if(!file)return;if(file.size>5e6)throw Error('Layout file is too large.');const loaded=onVenue(validateLayout(JSON.parse(await file.text())));if(loaded.venue)await prepareVenue();remember();layout=loaded;selected=null;change();fit();toast('Layout opened.');}catch(err){toast(err instanceof Error?err.message:'Could not open layout.');}input.value='';};
+$('#demo').onclick=async()=>{const button=$<HTMLButtonElement>('#demo');button.disabled=true;const previous=layout;try{if(previous.venue)await prepareVenue();if(layout!==previous)return;remember();layout=demoLayout(previous.venue);selected=null;change();fit();toast(layout.venue?'Example loaded on Lincoln. Undo restores your previous course.':'Example loaded. Undo restores your previous course.');}catch(error){toast((error as Error).message);}finally{button.disabled=false;}};$('#new').onclick=()=>{remember();layout=venueLayout();selected=null;change();fit();};
 $('#export').onclick=()=>{if(['stage','start','finish'].some(k=>!layout.items.some(i=>i.kind===k))){toast('Place staging, start, and finish before exporting.');return;}$<HTMLDialogElement>('#export-dialog').showModal();};$('#close-export').onclick=()=>$<HTMLDialogElement>('#export-dialog').close();$('#download-package').onclick=async()=>{const button=$<HTMLButtonElement>('#download-package');button.disabled=true;button.textContent='Preparing ZIP…';const snapshot=structuredClone(layout);try{const model=snapshot.venue?await venueModel():undefined;const {slug,zip}=buildExport(snapshot,model);download(new Uint8Array(zip).buffer,slug+'-source.zip');toast('Source package downloaded.');}catch(e){toast((e as Error).message);}finally{button.disabled=false;button.textContent='Download ZIP';}};
 $('#drive').onclick=async ()=>{
  const button=$<HTMLButtonElement>('#drive');button.disabled=true;
@@ -146,4 +146,4 @@ $('#preview').onclick=async ()=>{
  cleanupPreview=()=>{cancelAnimationFrame(frame);resize.disconnect();controls.dispose();disposeScene(scene);renderer.dispose();host.replaceChildren();};
  }catch(error){loadingRenderer?.dispose();if(request!==previewRequest)return;host.textContent=error instanceof Error?error.message:'Could not load 3D preview.';cleanupPreview=()=>host.replaceChildren();}
 };$('#close-preview').onclick=()=>$<HTMLDialogElement>('#preview-dialog').close();$<HTMLDialogElement>('#preview-dialog').onclose=()=>{previewRequest++;cleanupPreview();};
-sync();setTool(tool);
+if(!restoreError)persist();sync();setTool(tool);if(restoreError)toast(restoreError+' Original saved data has been kept.');

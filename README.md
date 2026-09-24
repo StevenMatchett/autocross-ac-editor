@@ -15,11 +15,11 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. Choose **Load example**, then **Drive** to try the Nationals course, or start placing cones to create your own.
+Open **http://localhost:5173**. Choose **Load example**, then **Drive** to try the Nationals course, or start placing cones on the Lincoln venue to create your own.
 
 ## Build a course
 
-- Resize the site using tiles of **25 × 25 feet** (7.62 × 7.62 m).
+- The Lincoln venue is always loaded. Its fixed work area has an optional **25 × 25-foot** (7.62 × 7.62 m) reference grid.
 - Place **18-inch orange cones** or sideways pointer cones, using the Nationals mod’s original mesh and worn orange texture.
 - Drag existing cones to move them. Rotate pointers to show the direction of travel.
 - Set **staging** for the car spawn, **start** for the timing line, and **finish** to end the run.
@@ -27,7 +27,7 @@ Open **http://localhost:5173**. Choose **Load example**, then **Drive** to try t
 - Inspect the course in an orbitable **3D preview**. Select a cone first to inspect it close up.
 - Undo/redo edits, save a JSON layout, or reopen one later. The editor also autosaves in your browser.
 
-The default site is 600 × 400 feet. Cone bases are approximately 0.2914 m squares; locator rings in the editor do not change their physical size. Pointer cones rest on their base edge and tip.
+The work area is 2100 × 1850 feet. Cone bases are approximately 0.2914 m squares; locator rings in the editor do not change their physical size. Pointer cones rest on their base edge and tip.
 
 ### Editor shortcuts
 
@@ -74,12 +74,12 @@ Opening setup pauses driving. Adjust the sliders, then click **Resume** to try t
 
 **Load example** includes a trace of the supplied 2026 Nationals East course:
 
-- **217 upright cones and 84 pointer cones**, on a 975 × 1400-foot site.
-- Cones **138–139 establish the exact 75-foot scale**; cone **102 anchors a four-way pad joint**.
+- **217 upright cones and 84 pointer cones**, traced in a 975 × 1400-foot area and placed on the Lincoln east apron.
+- Cones **138–139 establish the exact 75-foot scale**; cone **102 anchors a four-way joint in the original trace grid**.
 - Staging sits between cones **101 and 102**, facing the lane between 103 and 104.
 - The course retains the PDF orientation without rotation. Other traced positions are approximate.
 
-Labels, route lines, and the finish marker are omitted. **Add a finish before exporting.** The pad site is a reconstruction, not a surveyed venue model. See the [calibration notes](data/README.md).
+Labels, route lines, and the finish marker are omitted. **Add a finish before exporting.** Placement of the PDF trace on the venue is approximate. See the [calibration notes](data/README.md).
 
 ## Nationals mod assets
 
@@ -87,17 +87,17 @@ Upright and pointer cones use the original geometry and `ConePaintTexture` from 
 
 ![Original Nationals upright and pointer cone assets in the browser renderer](docs/screenshots/nats-cones.png)
 
-The templates preserve the original UVs and normals, with height normalized to exactly 18 inches. Choose **Load venue** to use the original mod’s road, grass, trees, and surrounding scenery, or keep using a configurable flat site. See [asset credits](ASSET_CREDITS.md) and [integration notes](docs/nats-mod-assets.md).
+The templates preserve the original UVs and normals, with height normalized to exactly 18 inches. The original mod’s road, grass, trees, and surrounding scenery form the permanent base. See [asset credits](ASSET_CREDITS.md) and [integration notes](docs/nats-mod-assets.md).
 
 ## Lincoln venue
 
-**Load venue** opens the imported Lincoln site with a staging point and no old course cones. Place your own cones and timing gates on the overhead venue image, then choose **Drive** or **3D preview**. Loading the venue is undoable; **New course** returns to a flat site.
+**Lincoln is always loaded**, including when opening the app or starting a new course. Click **Load example** to place the 2026 East course on the east apron, or place your own cones and timing gates. **New course** clears course objects and restores the default staging point while keeping the venue. Example loading and clearing the course are undoable.
 
 ![Imported Lincoln Nationals venue in the editor](docs/screenshots/venue-editor.png)
 
 The import includes all nine shared venue models, including the paved lot, terrain, trees, fences, toilets, and nearby buildings. Original dimensions and elevations are retained. Cones, timing markers, and the driver's camera follow the source road mesh. The editor work area is fixed at 2100 × 1850 ft; scenery extends beyond it.
 
-The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 PDF example remains separate: it has not been aligned to the imported venue. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
+The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 example is translated onto the east apron without changing scale, shape, or headings. Its venue placement is approximate, not a surveyed alignment. Loading the example replaces course objects and is undoable. Older flat JSON layouts are translated onto Lincoln without scaling or rotating their objects; the original browser save is retained under `padwork-legacy-backup` during migration. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
 
 The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. Blender extracts venue textures when generating the FBX; ksEditor material setup and in-game validation remain required.
 

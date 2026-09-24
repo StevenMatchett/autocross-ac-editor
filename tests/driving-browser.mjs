@@ -4,6 +4,8 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 const page=await browser.newPage({viewport:{width:1440,height:950}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://localhost:5173');
+ await page.locator('#file').setInputFiles({name:'empty.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:1,name:'No staging',columns:12,rows:12,items:[]}))});
+ await page.waitForFunction(()=>document.querySelector('#course-name').value==='No staging');
  await page.locator('#drive').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('staging'));
  const layout={version:1,name:'Driving check',columns:12,rows:12,items:[{id:'stage',kind:'stage',x:30,z:50,angle:0},{id:'start',kind:'start',x:30,z:44,angle:0},{id:'finish',kind:'finish',x:30,z:20,angle:0},{id:'cone',kind:'cone',x:30,z:37,angle:0}]};
  await page.locator('#file').setInputFiles({name:'drive.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(layout))});await page.waitForFunction(()=>document.querySelector('#course-name').value==='Driving check');

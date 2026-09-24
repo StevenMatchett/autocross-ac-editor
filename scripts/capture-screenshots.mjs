@@ -8,6 +8,7 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:950},deviceScaleFactor:1});
  await page.goto('http://localhost:5173');
  await page.locator('#demo').click();
+ await page.waitForFunction(()=>document.querySelector('#cone-count').textContent==='301');
  await page.locator('#map').waitFor();
  await page.waitForFunction(()=>!document.querySelector('#toast').classList.contains('visible'));
  await page.mouse.move(10,10);
