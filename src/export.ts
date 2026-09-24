@@ -1,0 +1,139 @@
+import {coneTexture, coneTexturePNG} from './cone-material';
+import { zipSync, strToU8 } from 'fflate';
+import { type Layout, CONE_HEIGHT, CONE_BASE, PAD, POINTER_TILT, POINTER_CENTER_HEIGHT } from './model';
+export function download(data:BlobPart,name:string,type='application/octet-stream'){
+ const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+export function buildExport(layout:Layout){
+ if(['stage','start','finish'].some(k=>!layout.items.some(i=>i.kind===k))) throw Error('Place staging, start, and finish before exporting.');
+ const slug=(layout.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,32)) || 'autocross';
+ const script=`# Run: blender --background --python build_track.py
+# Creates a NEW scene. Run in a fresh Blender session.
+import bpy, json, math
+from pathlib import Path
+from mathutils import Matrix, Vector
+ROOT = Path(__file__).resolve().parent
+layout = json.loads((ROOT / 'layout.json').read_text())
+bpy.ops.object.select_all(action='SELECT')
+bpy.ops.object.delete(use_global=False)
+bpy.context.scene.unit_settings.system = 'METRIC'
+bpy.context.scene.unit_settings.scale_length = 1.0
+PAD = ${PAD}
+HEIGHT = ${CONE_HEIGHT}
+BASE = ${CONE_BASE}
+width, depth = layout['columns']*PAD, layout['rows']*PAD
+def material(name, color):
+    m = bpy.data.materials.new(name)
+    m.diffuse_color = (*color, 1)
+    return m
+concrete = [material('Concrete_'+str(i), (0.48+i*0.012, 0.49+i*0.012, 0.47+i*0.012)) for i in range(4)]
+def cone_material(index):
+    m = material('Cone_%04d'%index, (1, .22, .035))
+    m.use_nodes = True
+    shader = m.node_tree.nodes.get('Principled BSDF')
+    shader.inputs['Roughness'].default_value = .78
+    image = bpy.data.images.load(str(ROOT/'texture'/('cone_%04d.png'%index)))
+    image.colorspace_settings.name = 'sRGB'
+    texture = m.node_tree.nodes.new('ShaderNodeTexImage')
+    texture.image = image
+    m.node_tree.links.new(texture.outputs['Color'], shader.inputs['Base Color'])
+    return m
+def cube(name, location, dimensions, mat):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
+    o=bpy.context.object; o.name=name; o.dimensions=dimensions
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    o.data.materials.append(mat)
+    return o
+# Blender uses Z up. Editor x/z becomes Blender x/-y, then FBX Y up.
+for row in range(layout['rows']):
+    for col in range(layout['columns']):
+        cube('1ROAD_pad_%d_%d'%(col,row), ((col+.5)*PAD,-(row+.5)*PAD,-.1), (PAD,PAD,.2), concrete[(col*7+row*3)%4])
+        # Flush pads with thin visual seams above the continuous physical surface.
+seam = material('Pad_joints', (.23,.25,.23))
+for col in range(1,layout['columns']):
+    cube('joint_x_'+str(col),(col*PAD,-depth/2,.001),(.018,depth,.002),seam)
+for row in range(1,layout['rows']):
+    cube('joint_y_'+str(row),(width/2,-row*PAD,.001),(width,.018,.002),seam)
+def marker(name,x,z,angle):
+    o=bpy.data.objects.new(name,None);bpy.context.collection.objects.link(o)
+    o.location=(x,-z,1)
+    a=math.radians(angle)
+    # Local Y up, local Z forward; heading 0 is north in the editor.
+    forward=Vector((math.sin(a),math.cos(a),0));up=Vector((0,0,1));right=up.cross(forward)
+    o.rotation_euler=Matrix((right,up,forward)).transposed().to_euler()
+for index,item in enumerate(layout['items']):
+    x,z,a=item['x'],item['z'],item['angle']
+    if item['kind'] in ('cone', 'pointer'):
+        orange = cone_material(index)
+        parts=[cube('base',(x,-z,.02),(BASE,BASE,.04),orange)]
+        # Solid orange body and base with a persistent per-cone rubber-wear texture.
+        bpy.ops.mesh.primitive_cone_add(vertices=32,radius1=.115,radius2=.018,depth=HEIGHT-.04,location=(x,-z,(HEIGHT+.04)/2))
+        body=bpy.context.object;body.data.materials.append(orange);parts.append(body)
+        for polygon in body.data.polygons:
+            polygon.use_smooth = len(polygon.vertices)==4
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in parts:o.select_set(True)
+        bpy.context.view_layer.objects.active=parts[0];bpy.ops.object.join()
+        # Assetto Corsa treats WALL meshes as fixed collision geometry.
+        # Use the visible closed base/body geometry for both cone orientations.
+        parts[0].name='1WALL_'+item['kind']+'_%04d'%index
+        parts[0].rotation_euler.z=-math.radians(a)
+        if item['kind']=='pointer':
+            parts[0].rotation_euler.x=-math.pi/2-${POINTER_TILT}
+            parts[0].location.z=${POINTER_CENTER_HEIGHT}
+        # Static barriers: no AC_POBJECT or movable rigid-body configuration.
+    elif item['kind']=='stage':
+        marker('AC_PIT_0',x,z,a)
+        marker('AC_HOTLAP_START_0',x,z,a)
+    else:
+        prefix='AC_AB_START' if item['kind']=='start' else 'AC_AB_FINISH'
+        a_rad=math.radians(a)
+        for side,sign in [('L',-1),('R',1)]:
+            marker(prefix+'_'+side,x+sign*item.get('width',6.096)/2*math.cos(a_rad),z+sign*item.get('width',6.096)/2*math.sin(a_rad),a)
+bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'${slug}.blend'))
+bpy.ops.export_scene.fbx(filepath=str(ROOT/'${slug}.fbx'),use_selection=False,object_types={'MESH','EMPTY'},axis_forward='-Z',axis_up='Y',global_scale=1.0,apply_unit_scale=True,bake_space_transform=False,add_leaf_bones=False,path_mode='COPY')
+print('Created Blender scene and FBX. Compile to KN5 with ksEditor; see README.txt.')
+`;
+ const readme=`PADWORK — ${layout.name}
+
+This is an Assetto Corsa SOURCE PACKAGE, not an installable track.
+
+1. Extract this entire archive. Install Blender (4.x or newer).
+2. In this folder run: blender --background --python build_track.py
+   Or open build_track.py in Blender's Scripting workspace and Run Script
+   in a fresh session (the script clears the current scene).
+3. Open ${slug}.fbx in Assetto Corsa SDK ksEditor on Windows.
+   Assign ksPerPixel materials and the included texture/cone_NNNN.png diffuse maps.
+   The PNG files contain the orange color and rubber marks; no procedural shader is required.
+   Check scale (each pad 7.62 m), normals, and marker axes (Y up / Z forward).
+4. Export ${slug}.kn5 into the included ${slug}/ folder.
+5. Copy ${slug}/ to assettocorsa/content/tracks/ and test in practice mode.
+   Confirm spawn direction, A-to-B timing, and impacts against upright and pointer cones in-game.
+   Keep 1WALL_cone_* and 1WALL_pointer_* mesh names intact: these enable fixed collisions.
+
+Geometry: exact 25 x 25 ft pads, cone height 18 in (0.4572 m).
+Each cone has an orange body/base with deterministic rubber scuffs and fading.
+Cone base is an assumed 0.28 m square. Units in layout.json are meters.
+Heading 0 = north, 90 = east. Pointer tips follow that heading.
+Pointer cones rest on their base edge and tip. Timing gates default to 20 feet unless width is specified in the layout.
+The pavement is flat and continuous; joints are visual strips.
+Upright and pointer cones are fixed WALL collision meshes, not movable props.
+Their collision geometry matches their visible size and orientation.
+The intended behavior is a solid obstacle that blocks the car. Actual impact response,
+including rebound or climbing over a low cone, depends on the game physics and car.
+There is no scripted speed reset or cone penalty logic; verify stopping behavior in-game.
+A-to-B start/finish markers are timing lines. Pit and hotlap spawns use the staging point and its heading. No AI line.
+No KN5 compiler, AI, preview image or game installation is bundled.
+This export has not been verified in Blender/ksEditor or Assetto Corsa.
+The overall site is a configurable pad rectangle, not a surveyed Lincoln replica.
+
+Reference: https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/
+`;
+ const files:Record<string,Uint8Array>={
+ 'layout.json':strToU8(JSON.stringify(layout,null,2)), 'build_track.py':strToU8(script),'README.txt':strToU8(readme),
+ [`${slug}/models.ini`]:strToU8(`[MODEL_0]\nFILE=${slug}.kn5\nPOSITION=0,0,0\nROTATION=0,0,0\n`),
+ [`${slug}/ui/ui_track.json`]:strToU8(JSON.stringify({name:layout.name,description:'Flat concrete autocross practice course',tags:['autocross'],country:'USA',city:'Custom pad site',pitboxes:'1',run:'point-to-point',author:'Padwork',version:'0.1'},null,2)),
+ [`${slug}/data/surfaces.ini`]:strToU8('[SURFACE_0]\nKEY=ROAD\nFRICTION=1\nDAMPING=0\nWAV=\nWAV_PITCH=0\nFF_EFFECT=NULL\nDIRT_ADDITIVE=0\nBLACK_FLAG_TIME=0\nIS_VALID_TRACK=1\nSIN_HEIGHT=0\nSIN_LENGTH=0\nIS_PITLANE=0\nVIBRATION_GAIN=0\nVIBRATION_LENGTH=0\n')};
+ for(const [index,item] of layout.items.entries()) if(item.kind==='cone'||item.kind==='pointer') files[`texture/cone_${String(index).padStart(4,'0')}.png`]=coneTexturePNG(coneTexture(item.id));
+ return {slug,files,zip:zipSync(files)};
+}

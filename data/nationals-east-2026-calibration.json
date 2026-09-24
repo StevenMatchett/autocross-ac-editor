@@ -1,0 +1,24 @@
+{
+  "referenceCones": [
+    138,
+    139
+  ],
+  "referenceFeet": 75,
+  "metersPerPixel": 0.08646901570365376,
+  "rotationDegrees": 0,
+  "gridReference": {
+    "cone": 102,
+    "joint": "intersection",
+    "orientation": "PDF axes"
+  },
+  "anchorMeters": {
+    "x": 137.16,
+    "z": 411.48
+  },
+  "siteFeet": {
+    "width": 975,
+    "depth": 1400
+  },
+  "uprightCones": 217,
+  "pointerCones": 84
+}
