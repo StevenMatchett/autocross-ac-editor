@@ -4,6 +4,8 @@ Build autocross courses on a concrete pad grid, drive them in your browser, and 
 
 ![Course editor showing the 2026 Nationals East example on a 25-foot concrete pad grid](docs/screenshots/editor.png)
 
+[Open the browser app](https://stevenmatchett.github.io/autocross-ac-editor/)
+
 ## Get started
 
 Use Node.js 22.12+ and npm.
@@ -93,6 +95,12 @@ The ZIP contains the JSON layout, Blender scene/FBX generator, individual cone t
 Upright and pointer cones export as fixed collision meshes named `1WALL_cone_*` and `1WALL_pointer_*`. Preserve these names in ksEditor. Actual stopping, rebound, or climbing over cone geometry must be checked in-game; the export does not include the browser tester's speed-reset logic.
 
 The Blender/ksEditor/game pipeline has not been tested in those applications. KN5 compilation, AI lines, and game preview images are not included. The generator clears the Blender scene, so run it in a fresh session. Track conventions follow the [track creation guide](https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/).
+
+## Hosting
+
+GitHub Pages serves the app at **https://stevenmatchett.github.io/autocross-ac-editor/**. In repository **Settings → Pages**, select **GitHub Actions** as the source. The [deployment workflow](.github/workflows/pages.yml) tests, builds, and publishes every push to `main`; it can also be run manually from the Actions tab.
+
+Vite uses `/autocross-ac-editor/` for production assets and `/` for local development. No server or API keys are needed. Browser saves on the hosted site are separate from localhost; use JSON save/open to transfer courses.
 
 ## Development
 
