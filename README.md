@@ -1,85 +1,126 @@
-# Padwork
+# Padwork · Autocross AC Editor
 
-A browser-based autocross course editor for laying out a flat concrete pad site and preparing Assetto Corsa track source files.
+Build autocross courses on a concrete pad grid, drive them in your browser, and export track source files for Assetto Corsa.
 
-## Run
+![Course editor showing the 2026 Nationals East example on a 25-foot concrete pad grid](docs/screenshots/editor.png)
+
+## Get started
+
+Use Node.js 22.12+ and npm.
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. `npm run build` type-checks and builds the production app; `npm run preview` serves that build.
+Open **http://localhost:5173**. Choose **Load example**, then **Drive** to try the Nationals course, or start placing cones to create your own.
 
-## Editor
+## Build a course
 
-- Configurable rectangle of **25 × 25-foot (7.62 × 7.62 m)** concrete pads, defaulting to 24 × 16 pads (600 × 400 ft). This is a Nationals-style base, not a surveyed replica of the actual venue.
-- Place upright or sideways pointer cones; drag existing objects directly with any drawing tool, edit coordinates, and rotate staging/start/finish markers. Staging is the car spawn; the start line begins timing. Gate arrows indicate driving direction; 0° points north, 90° east.
-- Exact **18-inch (0.4572 m)** cone height and an assumed 0.28 m square base. Small locator rings keep cones visible in the plan view without changing exported dimensions.
-- Snap off, 1 ft, 5 ft, or 25 ft; toggle pad lines; zoom with the wheel; pan with Space + drag or the hand tool; fit the site.
-- Undo/redo up to 100 edits, including loading the example and clearing the course.
-- Browser-local autosave plus downloadable/reopenable JSON layouts. Keep JSON backups: browser storage is local to the browser and origin.
-- Orbitable Three.js preview with full-scale cone geometry and flat pad grid. Select a cone before opening the preview to inspect it close up.
-- Orange cone bodies and bases with individually seeded fading and rubber scuffs. Wear stays consistent across moves and saves; export includes each cone’s PNG texture for Blender and ksEditor.
+- Resize the site using tiles of **25 × 25 feet** (7.62 × 7.62 m).
+- Place **18-inch orange cones** or sideways pointer cones, with individual rubber scuffs and fading.
+- Drag existing cones to move them. Rotate pointers to show the direction of travel.
+- Set **staging** for the car spawn, **start** for the timing line, and **finish** to end the run.
+- Snap to 1-foot, 5-foot, or 25-foot spacing, or turn snapping off.
+- Inspect the course in an orbitable **3D preview**. Select a cone first to inspect it close up.
+- Undo/redo edits, save a JSON layout, or reopen one later. The editor also autosaves in your browser.
 
-Shortcuts: V select, C cone, P pointer cone, G staging, S start, F finish, H pan, R rotate 15°, Delete remove, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo. Editing is primarily designed for a desktop pointer and keyboard.
+The default site is 600 × 400 feet. Cone bases are modeled as 0.28 m squares; locator rings in the editor do not change their physical size. Pointer cones rest on their base edge and tip.
 
-## Drive tester
+### Editor shortcuts
 
-Choose **Drive** to test the current course from a first-person Three.js view. Place a staging point first, with enough clearance for the car.
+| Action | Control |
+| --- | --- |
+| Select / upright cone / pointer cone | V / C / P |
+| Staging / start / finish | G / S / F |
+| Pan | H, or Space + drag |
+| Zoom | Mouse wheel |
+| Rotate selected object 15° | R |
+| Delete selected object | Delete |
+| Undo / redo | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z |
 
-- **W** accelerates; **S** brakes, then reverses; **A / D** steer.
-- **Car setup** opens sliders for tire grip, acceleration, braking, steering lock, steering response, and top speed. Opening setup pauses driving; use Resume when ready. Settings are saved in this browser, with Restore defaults available. These settings affect only the tester.
-- **R** resets to staging; **Space** pauses/resumes; **Esc** returns to the editor.
-- Upright and pointer cones completely stop the car on contact. The site boundary also stops it.
-- Crossing the start in its arrow direction starts the timer; crossing the finish stops it. A finish is optional for testing.
+Headings use 0° for north and 90° for east. Gate arrows show the direction of travel. Editing works best with a desktop mouse and keyboard. Download JSON backups to keep layouts outside browser storage.
 
-The tester uses progressive throttle and steering, speed-dependent engine power, limited tire grip shared between braking and cornering, and a damped steering response. A visible steering wheel and subtle camera pitch/roll provide feedback. This is still an approximate handling model, not Assetto Corsa physics. It runs a snapshot of the course without changing the layout and pauses when the window loses focus.
+## Drive the course
+
+**Drive** opens a first-person Three.js tester using the current layout. The car starts at staging, which needs enough clearance for the car body.
+
+![First-person driving view with a steering wheel, cones, speed display, and run timer](docs/screenshots/driving.png)
+
+| Action | Control |
+| --- | --- |
+| Accelerate | W |
+| Brake, then reverse | S |
+| Steer | A / D |
+| Reset to staging | R |
+| Pause / resume | Space |
+| Return to editor | Esc |
+
+Cross the start in its arrow direction to begin timing; cross the finish to stop it. A finish is optional for testing. Upright cones, pointer cones, and the site boundary **completely stop the car** on contact.
+
+The handling model includes progressive throttle, speed-dependent power, steering response, and tire grip shared between braking and cornering. The steering wheel and subtle camera motion provide feedback. This is an approximate course tester, not Assetto Corsa physics. Driving does not modify your layout, and losing window focus pauses the car.
+
+### Tune the car
+
+Open **Car setup** to adjust tire grip, acceleration, brake strength, steering lock, steering response, and top speed.
+
+![Car setup panel with six tuning sliders and Restore defaults](docs/screenshots/car-setup.png)
+
+Opening setup pauses driving. Adjust the sliders, then click **Resume** to try the changes. Settings persist in your browser; **Restore defaults** resets them. Car setup affects the browser tester only.
 
 ## Nationals example
 
-**Load example** recreates the supplied 2026 Nationals East course with 217 upright cones, 84 pointer cones, plus separate staging and start markers. Cones 138 and 139 set the exact 75-ft scale; cone 102 anchors a four-way grid intersection. The site is 975 × 1400 ft. Numbers, words, route lines, and the finish marker are omitted; add a finish before exporting. The course and grid preserve the PDF orientation without rotation. Other positions are traced from the PDF and are approximate. See [calibration notes](data/README.md).
+**Load example** includes a trace of the supplied 2026 Nationals East course:
 
-## Assetto Corsa export
+- **217 upright cones and 84 pointer cones**, on a 975 × 1400-foot site.
+- Cones **138–139 establish the exact 75-foot scale**; cone **102 anchors a four-way pad joint**.
+- Staging sits between cones **101 and 102**, facing the lane between 103 and 104.
+- The course retains the PDF orientation without rotation. Other traced positions are approximate.
 
-Place staging, start, and finish, then choose **Export track**. The ZIP includes:
+Labels, route lines, and the finish marker are omitted. **Add a finish before exporting.** The pad site is a reconstruction, not a surveyed venue model. See the [calibration notes](data/README.md).
 
-- `layout.json`: versioned editor data; all positions are meters, angles are degrees.
-- `build_track.py`: standalone Blender scene/FBX generator, including concrete geometry, visual joints, orange upright and pointer cones with unique rubber-wear textures, A-to-B timing gates, pit and hotlap spawn markers.
-- A track folder with `models.ini`, `data/surfaces.ini`, and `ui/ui_track.json`.
-- `README.txt`: instructions and limitations.
+## Export to Assetto Corsa
 
-Extract the ZIP, run `blender --background --python build_track.py` in that directory, open the generated FBX in the Assetto Corsa SDK's **ksEditor**, configure shaders/materials, and export the KN5 into the included track folder. Copy the track folder into the game's `content/tracks` folder and verify scale, orientation, collision, spawning, and timing in-game.
+**Export track produces source files, not an installable game track.** You need Blender and the Assetto Corsa SDK's ksEditor to finish the conversion.
 
-**This is a source export, not a one-click installable game track.** Blender, ksEditor, and Assetto Corsa are not installed in the development environment, so the generated pipeline has not been tested in those applications. Upright and pointer cones export as fixed collision meshes (`1WALL_cone_*` / `1WALL_pointer_*`) using their actual geometry. They are intended to block the car instead of moving when hit. Actual stopping, rebound, or climbing over low geometry must be verified in-game; no scripted speed reset or cone penalty logic is implemented. Preserve the `1WALL_` mesh names in ksEditor. AI lines, game preview images, and KN5 compilation are not included. The generator clears the current Blender scene; run it in a fresh session.
+1. Place staging, start, and finish, then choose **Export track**.
+2. Extract the ZIP and run `blender --background --python build_track.py` from that directory.
+3. Open the generated FBX in **ksEditor**, configure shaders/materials, and export the KN5 into the included track folder.
+4. Copy the completed folder into Assetto Corsa's `content/tracks` directory and verify it in-game.
 
-Track object conventions follow the [track creation guide](https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/). FBX importer compatibility and material configuration require checking against the installed SDK version.
+The ZIP contains the JSON layout, Blender scene/FBX generator, individual cone textures, track configuration (`models.ini`, `data/surfaces.ini`, `ui/ui_track.json`), and conversion instructions. Staging supplies pit and hotlap spawns; start and finish supply timing markers.
 
-## Verification
+Upright and pointer cones export as fixed collision meshes named `1WALL_cone_*` and `1WALL_pointer_*`. Preserve these names in ksEditor. Actual stopping, rebound, or climbing over cone geometry must be checked in-game; the export does not include the browser tester's speed-reset logic.
+
+The Blender/ksEditor/game pipeline has not been tested in those applications. KN5 compilation, AI lines, and game preview images are not included. The generator clears the Blender scene, so run it in a fresh session. Track conventions follow the [track creation guide](https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/).
+
+## Development
+
+TypeScript, Vite, Canvas 2D, Three.js, and fflate. No backend.
 
 ```sh
-npm test
-npm run build
-# With npm run dev running and Chromium installed:
-node tests/browser.mjs
-node tests/driving-browser.mjs
+npm test          # Unit tests
+npm run build     # Type-check and build
+npm run preview   # Serve the production build
 ```
 
-The browser smoke test uses `/usr/bin/chromium`, verifies editing/persistence/export/3D preview, and writes screenshots under `/tmp/`. The unit tests cover real-world dimensions, layout validation and round-tripping, and ZIP contents. Driving tests cover controls, collisions, timing, spawn validation, and browser lifecycle.
+With the dev server running and Chromium at `/usr/bin/chromium`:
 
-Pointer cones point along their heading (0° north, 90° east) and rest on their base edge and tip in the 3D preview and Blender export. Rotate with R or enter a heading in the selected object’s properties.
+```sh
+node tests/browser.mjs
+node tests/driving-browser.mjs
+node scripts/capture-screenshots.mjs
+```
 
-## Implementation
+Tests cover editing, persistence, real-world dimensions, example calibration, source export, driving controls, collisions, timing, tuning, and browser lifecycle. The screenshot script refreshes the images in this README using a fresh browser session.
 
-TypeScript + Vite, Canvas 2D for the editor, Three.js for the on-demand preview and driving tester, fflate for ZIP generation. There is no backend. The interface uses system fonts and a compact toolbar with contextual object properties.
-
-- `src/cone-material.ts`: deterministic cone appearance and portable PNG textures.
-- `src/model.ts`: units, schema validation, example layout.
-- `src/main.ts`: editor state, interactions, rendering and preview.
-- `src/driving.ts`: car motion, collision detection, and gate timing.
-- `src/drive-tester.ts`: first-person view, controls, and driving HUD.
-- `src/course-scene.ts`: shared full-scale Three.js course scene.
-- `src/export.ts`: Blender generator and Assetto Corsa source bundle.
-- `src/style.css`: application styling and responsive layout.
-
-The Nationals staging point sits midway between cones 101 and 102, facing the lane between 103 and 104. Exported pit and hotlap spawns use staging; the start timing line remains at its original PDF position.
+| File | Purpose |
+| --- | --- |
+| `src/main.ts` | Editor interactions and rendering |
+| `src/model.ts` | Units, layout schema, and example loading |
+| `src/cone-material.ts` | Repeatable cone wear and portable textures |
+| `src/course-scene.ts` | Shared Three.js course geometry |
+| `src/driving.ts` | Car movement, collisions, and timing |
+| `src/drive-tester.ts` | First-person view and controls |
+| `src/car-setup.ts` | Tuning defaults, ranges, and validation |
+| `src/export.ts` | Blender generator and Assetto Corsa source ZIP |
