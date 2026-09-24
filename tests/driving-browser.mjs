@@ -1,0 +1,32 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1440,height:950}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://localhost:5173');
+ await page.locator('#drive').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('staging'));
+ const layout={version:1,name:'Driving check',columns:12,rows:12,items:[{id:'stage',kind:'stage',x:30,z:50,angle:0},{id:'start',kind:'start',x:30,z:44,angle:0},{id:'finish',kind:'finish',x:30,z:20,angle:0},{id:'cone',kind:'cone',x:30,z:37,angle:0}]};
+ await page.locator('#file').setInputFiles({name:'drive.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(layout))});await page.waitForFunction(()=>document.querySelector('#course-name').value==='Driving check');
+ const saved=await page.evaluate(()=>localStorage.getItem('padwork'));
+ await page.locator('#drive').click();await page.locator('#drive-viewport canvas').waitFor();
+ await page.keyboard.down('w');await page.waitForFunction(()=>Number(document.querySelector('#drive-speed').textContent)>0);await page.waitForFunction(()=>document.querySelector('#drive-message').textContent.includes('Cone hit'),null,{timeout:20000});await page.keyboard.up('w');
+ assert.equal(await page.locator('#drive-speed').textContent(),'0');assert.equal(await page.locator('#drive-run-state').textContent(),'Running');
+ await page.locator('#drive-reset').click();assert.equal(await page.locator('#drive-time').textContent(),'0.000');
+ await page.keyboard.down('s');await page.waitForFunction(()=>document.querySelector('#drive-gear').textContent==='R');await page.keyboard.up('s');
+ await page.locator('#drive-pause').click();assert.equal(await page.locator('#drive-message').textContent(),'Paused');
+ await page.locator('#drive-reset').click();await page.keyboard.down('w');await page.waitForTimeout(250);assert.equal(await page.locator('#drive-speed').textContent(),'0');await page.keyboard.up('w');
+ await page.locator('#drive-pause').click();await page.keyboard.down('w');await page.waitForFunction(()=>Number(document.querySelector('#drive-speed').textContent)>0);await page.evaluate(()=>window.dispatchEvent(new Event('blur')));await page.keyboard.up('w');assert.equal(await page.locator('#drive-message').textContent(),'Paused');
+ await page.keyboard.press('Escape');await page.locator('#drive-dialog').waitFor({state:'detached'});assert.equal(await page.evaluate(()=>localStorage.getItem('padwork')),saved);
+ await page.locator('#demo').click();await page.locator('#drive').click();await page.locator('#drive-viewport canvas').waitFor();await page.waitForTimeout(400);await page.screenshot({path:'/tmp/padwork-driving.png'});
+ await page.locator('#drive-setup-toggle').click();assert.equal(await page.locator('#drive-message').textContent(),'Paused');
+ await page.locator('#setup-grip').fill('16');await page.locator('#setup-grip').press('ArrowRight');
+ assert.equal(await page.locator('#value-grip').textContent(),'16.1 m/s²');
+ await page.screenshot({path:'/tmp/padwork-car-setup.png'});
+ await page.locator('#drive-close').click();await page.locator('#drive-dialog').waitFor({state:'detached'});
+ await page.locator('#drive').click();await page.locator('#drive-viewport canvas').waitFor();assert.equal(await page.locator('#drive-speed').textContent(),'0');
+ await page.locator('#drive-setup-toggle').click();assert.equal(await page.locator('#setup-grip').inputValue(),'16.1');
+ await page.locator('#drive-setup-defaults').click();assert.equal(await page.locator('#setup-grip').inputValue(),'12.8');
+ await page.locator('#drive-pause').click();assert.equal(await page.locator('#drive-setup').isVisible(),false);
+ await page.locator('#drive-close').click();
+ assert.deepEqual(errors,[]);console.log('Driving browser checks passed: spawn guard, acceleration, cone stop, timing, reverse, reset, pause, focus loss, escape, snapshot isolation, Nationals and reopening.');
+}finally{await browser.close();}

@@ -24,6 +24,18 @@ Open http://localhost:5173. `npm run build` type-checks and builds the productio
 
 Shortcuts: V select, C cone, P pointer cone, G staging, S start, F finish, H pan, R rotate 15°, Delete remove, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo. Editing is primarily designed for a desktop pointer and keyboard.
 
+## Drive tester
+
+Choose **Drive** to test the current course from a first-person Three.js view. Place a staging point first, with enough clearance for the car.
+
+- **W** accelerates; **S** brakes, then reverses; **A / D** steer.
+- **Car setup** opens sliders for tire grip, acceleration, braking, steering lock, steering response, and top speed. Opening setup pauses driving; use Resume when ready. Settings are saved in this browser, with Restore defaults available. These settings affect only the tester.
+- **R** resets to staging; **Space** pauses/resumes; **Esc** returns to the editor.
+- Upright and pointer cones completely stop the car on contact. The site boundary also stops it.
+- Crossing the start in its arrow direction starts the timer; crossing the finish stops it. A finish is optional for testing.
+
+The tester uses progressive throttle and steering, speed-dependent engine power, limited tire grip shared between braking and cornering, and a damped steering response. A visible steering wheel and subtle camera pitch/roll provide feedback. This is still an approximate handling model, not Assetto Corsa physics. It runs a snapshot of the course without changing the layout and pauses when the window loses focus.
+
 ## Nationals example
 
 **Load example** recreates the supplied 2026 Nationals East course with 217 upright cones, 84 pointer cones, plus separate staging and start markers. Cones 138 and 139 set the exact 75-ft scale; cone 102 anchors a four-way grid intersection. The site is 975 × 1400 ft. Numbers, words, route lines, and the finish marker are omitted; add a finish before exporting. The course and grid preserve the PDF orientation without rotation. Other positions are traced from the PDF and are approximate. See [calibration notes](data/README.md).
@@ -50,19 +62,23 @@ npm test
 npm run build
 # With npm run dev running and Chromium installed:
 node tests/browser.mjs
+node tests/driving-browser.mjs
 ```
 
-The browser smoke test uses `/usr/bin/chromium`, verifies editing/persistence/export/3D preview, and writes screenshots under `/tmp/`. The unit tests cover real-world dimensions, layout validation and round-tripping, and ZIP contents.
+The browser smoke test uses `/usr/bin/chromium`, verifies editing/persistence/export/3D preview, and writes screenshots under `/tmp/`. The unit tests cover real-world dimensions, layout validation and round-tripping, and ZIP contents. Driving tests cover controls, collisions, timing, spawn validation, and browser lifecycle.
 
 Pointer cones point along their heading (0° north, 90° east) and rest on their base edge and tip in the 3D preview and Blender export. Rotate with R or enter a heading in the selected object’s properties.
 
 ## Implementation
 
-TypeScript + Vite, Canvas 2D for the editor, Three.js for the on-demand preview, fflate for ZIP generation. There is no backend. The interface uses system fonts and a compact toolbar with contextual object properties.
+TypeScript + Vite, Canvas 2D for the editor, Three.js for the on-demand preview and driving tester, fflate for ZIP generation. There is no backend. The interface uses system fonts and a compact toolbar with contextual object properties.
 
 - `src/cone-material.ts`: deterministic cone appearance and portable PNG textures.
 - `src/model.ts`: units, schema validation, example layout.
 - `src/main.ts`: editor state, interactions, rendering and preview.
+- `src/driving.ts`: car motion, collision detection, and gate timing.
+- `src/drive-tester.ts`: first-person view, controls, and driving HUD.
+- `src/course-scene.ts`: shared full-scale Three.js course scene.
 - `src/export.ts`: Blender generator and Assetto Corsa source bundle.
 - `src/style.css`: application styling and responsive layout.
 

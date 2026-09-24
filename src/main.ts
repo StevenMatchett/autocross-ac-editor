@@ -1,8 +1,8 @@
 import './style.css';
 import {rotatePoint,fitView} from './view';
-import {coneColor, coneTexture} from './cone-material';
+import {coneColor} from './cone-material';
 import {createIcons, MousePointer2, Triangle, Flag, MapPin, Hand, Undo2, Redo2, Download, Upload, Plus, Minus, Maximize, Box, X, Save, Grid2X2, Car} from 'lucide';
-import {PAD,FOOT,CONE_BASE,CONE_HEIGHT,POINTER_TILT,POINTER_CENTER_HEIGHT,emptyLayout,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
+import {PAD,FOOT,CONE_BASE,CONE_HEIGHT,POINTER_TILT,emptyLayout,demoLayout,validateLayout,snap,type Layout,type Item} from './model';
 import {buildExport,download} from './export';
 const $=<T extends HTMLElement=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const icon=(name:string)=>`<i data-lucide="${name}"></i>`;
@@ -22,7 +22,7 @@ $('#app').innerHTML=`<header>
     <div class="sidebar-bottom"><button id="demo" title="2026 Solo Nationals East course">Load example</button><button id="new">New course</button></div>
   </aside>
   <main>
-    <div class="toolbar"><div class="tools" role="toolbar" aria-label="Drawing tools">${[['select','mouse-pointer-2','Select','V'],['cone','triangle','Cone','C'],['pointer','triangle','Pointer','P'],['stage','car','Stage','G'],['start','map-pin','Start','S'],['finish','flag','Finish','F'],['pan','hand','Pan','H']].map(([id,ic,label,key])=>`<button data-tool="${id}" title="${label} (${key})" aria-label="${label}" aria-pressed="false">${icon(ic)}<span>${label}</span></button>`).join('')}</div><div class="history"><button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">${icon('undo-2')}</button><button id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">${icon('redo-2')}</button></div><div class="view-actions"><button id="preview" aria-label="3D preview" title="3D preview">${icon('box')}<span>3D preview</span></button><button id="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button></div></div>
+    <div class="toolbar"><div class="tools" role="toolbar" aria-label="Drawing tools">${[['select','mouse-pointer-2','Select','V'],['cone','triangle','Cone','C'],['pointer','triangle','Pointer','P'],['stage','car','Stage','G'],['start','map-pin','Start','S'],['finish','flag','Finish','F'],['pan','hand','Pan','H']].map(([id,ic,label,key])=>`<button data-tool="${id}" title="${label} (${key})" aria-label="${label}" aria-pressed="false">${icon(ic)}<span>${label}</span></button>`).join('')}</div><div class="history"><button id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">${icon('undo-2')}</button><button id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">${icon('redo-2')}</button></div><div class="view-actions"><button id="drive" class="primary" title="Drive course (WASD)">${icon('car')}<span>Drive</span></button><button id="preview" aria-label="3D preview" title="3D preview">${icon('box')}<span>3D preview</span></button><button id="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button></div></div>
     <div class="canvas-wrap"><canvas id="map" aria-label="Autocross map. Choose a tool and click to place objects."></canvas><div class="compass" aria-label="North">N<span>↑</span></div><div class="canvas-bottom"><div class="hint" id="tool-hint"></div><div class="zoom"><button id="zoom-out" aria-label="Zoom out">${icon('minus')}</button><span id="zoom-level"></span><button id="zoom-in" aria-label="Zoom in">${icon('plus')}</button><button id="fit" aria-label="Fit site" title="Fit site">${icon('maximize')}</button></div></div></div>
     <footer><span id="coordinates">X — &nbsp; Y —</span><span class="cone-count"><b id="cone-count">0</b> cones</span><div id="gates"></div></footer>
   </main>
@@ -116,32 +116,21 @@ $('#save').onclick=()=>download(JSON.stringify(layout,null,2),'course.padwork.js
 $('#open').onclick=()=>$<HTMLInputElement>('#file').click();$<HTMLInputElement>('#file').onchange=async e=>{const input=e.target as HTMLInputElement;try{const file=input.files?.[0];if(!file)return;if(file.size>5e6)throw Error('Layout file is too large.');const loaded=validateLayout(JSON.parse(await file.text()));remember();layout=loaded;selected=null;change();fit();toast('Layout opened.');}catch(err){toast(err instanceof Error?err.message:'Could not open layout.');}input.value='';};
 $('#demo').onclick=()=>{remember();layout=demoLayout();selected=null;change();fit();toast('Example loaded. Undo restores your previous course.');};$('#new').onclick=()=>{remember();layout=emptyLayout();selected=null;change();fit();};
 $('#export').onclick=()=>{if(['stage','start','finish'].some(k=>!layout.items.some(i=>i.kind===k))){toast('Place staging, start, and finish before exporting.');return;}$<HTMLDialogElement>('#export-dialog').showModal();};$('#close-export').onclick=()=>$<HTMLDialogElement>('#export-dialog').close();$('#download-package').onclick=()=>{try{const {slug,zip}=buildExport(layout);download(new Uint8Array(zip).buffer,slug+'-source.zip');toast('Source package downloaded.');}catch(e){toast((e as Error).message);}};
+$('#drive').onclick=async ()=>{
+ const button=$<HTMLButtonElement>('#drive');button.disabled=true;
+ try{const {openDrivingTester}=await import('./drive-tester');openDrivingTester(layout);}
+ catch(error){toast(error instanceof Error?error.message:'Could not start the driving tester.');}
+ finally{button.disabled=false;}
+};
 let cleanupPreview=()=>{};
 $('#preview').onclick=async ()=>{
  const dialog=$<HTMLDialogElement>('#preview-dialog');dialog.showModal();const host=$('#three');
  try{const [THREE,{OrbitControls}]=await Promise.all([import('three'),import('three/addons/controls/OrbitControls.js')]);if(!dialog.open)return;const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(host.clientWidth,host.clientHeight);host.append(renderer.domElement);
- const scene=new THREE.Scene();scene.background=new THREE.Color('#dfe5de');const camera=new THREE.PerspectiveCamera(45,host.clientWidth/host.clientHeight,.05,5000);const w=layout.columns*PAD,h=layout.rows*PAD;camera.position.set(w*.55,Math.max(w,h)*.65,h*1.15);
- const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(w/2,0,h/2);const focus=layout.items.find(i=>i.id===selected&&(i.kind==='cone'||i.kind==='pointer'));if(focus){controls.target.set(focus.x,.2,focus.z);camera.position.set(focus.x+.9,.8,focus.z+1.1);}controls.update();scene.add(new THREE.HemisphereLight(0xffffff,0x606b50,2.6));const sun=new THREE.DirectionalLight(0xffffff,2);sun.position.set(-30,80,20);scene.add(sun);
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({color:0xc2c6bc,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(w/2,0,h/2);scene.add(ground);
- const points=[];for(let c=0;c<=layout.columns;c++)points.push(c*PAD,.005,0,c*PAD,.005,h);for(let r=0;r<=layout.rows;r++)points.push(0,.005,r*PAD,w,.005,r*PAD);const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(points,3));scene.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x9fa899})));
- const baseGeo=new THREE.BoxGeometry(CONE_BASE,.04,CONE_BASE);
- const bodyGeo=new THREE.CylinderGeometry(.018,.115,CONE_HEIGHT-.04,32);
- for(const item of layout.items){if(item.kind==='cone'||item.kind==='pointer'){
- const appearance=coneTexture(item.id);
- const texture=new THREE.DataTexture(appearance.pixels,appearance.width,appearance.height,THREE.RGBAFormat);
- texture.colorSpace=THREE.SRGBColorSpace;texture.flipY=true;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;
- const material=new THREE.MeshStandardMaterial({map:texture,roughness:.78,metalness:0});
- const group=new THREE.Group();const base=new THREE.Mesh(baseGeo,material);group.add(base);
- const body=new THREE.Mesh(bodyGeo,material);body.position.y=CONE_HEIGHT/2;group.add(body);
- group.position.set(item.x,item.kind==='pointer'?POINTER_CENTER_HEIGHT:.02,item.z);
- group.rotation.set(item.kind==='pointer'?-Math.PI/2-POINTER_TILT:0,-item.angle*Math.PI/180,0,'YXZ');scene.add(group);
- }else if(item.kind==='stage'){
- const group=new THREE.Group();const outline=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.8,.04,4)),new THREE.LineBasicMaterial({color:0x245dc1}));
- group.add(outline);group.position.set(item.x,.04,item.z);group.rotation.y=-item.angle*Math.PI/180;scene.add(group);
- const a=item.angle*Math.PI/180;scene.add(new THREE.ArrowHelper(new THREE.Vector3(Math.sin(a),0,-Math.cos(a)),new THREE.Vector3(item.x,.1,item.z),3,0x245dc1));
- }else{const gate=new THREE.Mesh(new THREE.BoxGeometry(item.width??6.096,.015,.16),new THREE.MeshStandardMaterial({color:item.kind==='start'?0x398660:0xdd9955}));gate.position.set(item.x,.015,item.z);gate.rotation.y=-item.angle*Math.PI/180;scene.add(gate);const a=item.angle*Math.PI/180;scene.add(new THREE.ArrowHelper(new THREE.Vector3(Math.sin(a),0,-Math.cos(a)),new THREE.Vector3(item.x,.08,item.z),3,item.kind==='start'?0x398660:0xdd9955));}}
+ const {createCourseScene,disposeScene}=await import('./course-scene');if(!dialog.open){renderer.dispose();host.replaceChildren();return;}
+ const scene=createCourseScene(layout);const camera=new THREE.PerspectiveCamera(45,host.clientWidth/host.clientHeight,.05,5000);const w=layout.columns*PAD,h=layout.rows*PAD;camera.position.set(w*.55,Math.max(w,h)*.65,h*1.15);
+ const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(w/2,0,h/2);const focus=layout.items.find(i=>i.id===selected&&(i.kind==='cone'||i.kind==='pointer'));if(focus){controls.target.set(focus.x,.2,focus.z);camera.position.set(focus.x+.9,.8,focus.z+1.1);}controls.update();
  let frame=0;const render=()=>{frame=requestAnimationFrame(render);controls.update();renderer.render(scene,camera);};render();const resize=new ResizeObserver(()=>{if(!host.clientWidth)return;camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);});resize.observe(host);
- cleanupPreview=()=>{cancelAnimationFrame(frame);resize.disconnect();controls.dispose();scene.traverse(o=>{if(o instanceof THREE.Mesh || o instanceof THREE.LineSegments || o instanceof THREE.Line){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(m instanceof THREE.MeshStandardMaterial)m.map?.dispose();m.dispose();});}});renderer.dispose();host.replaceChildren();};
+ cleanupPreview=()=>{cancelAnimationFrame(frame);resize.disconnect();controls.dispose();disposeScene(scene);renderer.dispose();host.replaceChildren();};
  }catch{host.textContent='3D preview requires a browser with WebGL enabled.';cleanupPreview=()=>host.replaceChildren();}
 };$('#close-preview').onclick=()=>$<HTMLDialogElement>('#preview-dialog').close();$<HTMLDialogElement>('#preview-dialog').onclose=()=>cleanupPreview();
 sync();setTool(tool);
