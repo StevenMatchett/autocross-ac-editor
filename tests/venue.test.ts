@@ -43,15 +43,17 @@ test('venue source export contains venue GLB, elevations and correct surface key
  assert.match(strFromU8(bundle.files[`${bundle.slug}/data/surfaces.ini`]),/KEY=PROAD/);
 });
 
-test('venue example preserves every object and calibrated distance with a single translation',()=>{
+test('venue example preserves every object and calibrated distance with a half-turn and 150-foot westward shift',()=>{
  const flat=demoLayout(),overlay=demoLayout('lincoln');
+ assert.ok(Math.abs(42*PAD-EXAMPLE_VENUE_OFFSET.x-150*FOOT)<1e-10);
  assert.equal(overlay.venue,'lincoln');assert.equal(overlay.columns,VENUE.columns);assert.equal(overlay.rows,VENUE.rows);
  assert.equal(overlay.items.length,flat.items.length);assert.equal(overlay.items.filter(i=>i.kind==='stage').length,1);
  for(let i=0;i<flat.items.length;i++){
   const original=flat.items[i],moved=overlay.items[i];
-  assert.deepEqual({...moved,x:original.x,z:original.z},original);
-  assert.ok(Math.abs(moved.x-original.x-EXAMPLE_VENUE_OFFSET.x)<1e-10);
-  assert.ok(Math.abs(moved.z-original.z-EXAMPLE_VENUE_OFFSET.z)<1e-10);
+  assert.deepEqual({...moved,x:original.x,z:original.z,angle:original.angle},original);
+  assert.equal(moved.angle,((original.angle+180)%360+360)%360);
+  assert.ok(Math.abs(moved.x+original.x-flat.columns*PAD-EXAMPLE_VENUE_OFFSET.x)<1e-10);
+  assert.ok(Math.abs(moved.z+original.z-flat.rows*PAD-EXAMPLE_VENUE_OFFSET.z)<1e-10);
   assert.notEqual(road.height(moved.x,moved.z),null,`Object ${moved.id} must stay on the venue surface`);
  }
  const cone=(n:number)=>overlay.items.find(i=>i.id===`nats-east-2026-cone-${n}`)!;

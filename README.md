@@ -77,7 +77,7 @@ Opening setup pauses driving. Adjust the sliders, then click **Resume** to try t
 - **217 upright cones and 84 pointer cones**, traced in a 975 × 1400-foot area and placed on the Lincoln east apron.
 - Cones **138–139 establish the exact 75-foot scale**; cone **102 anchors a four-way joint in the original trace grid**.
 - Staging sits between cones **101 and 102**, facing the lane between 103 and 104.
-- The course retains the PDF orientation without rotation. Other traced positions are approximate.
+- The venue example is rotated 180° from the PDF and shifted 150 feet west from its initial east-apron placement. Other traced positions are approximate.
 
 Labels, route lines, and the finish marker are omitted. **Add a finish before exporting.** Placement of the PDF trace on the venue is approximate. See the [calibration notes](data/README.md).
 
@@ -97,7 +97,7 @@ The templates preserve the original UVs and normals, with height normalized to e
 
 The import includes all nine shared venue models, including the paved lot, terrain, trees, fences, toilets, and nearby buildings. Original dimensions and elevations are retained. Cones, timing markers, and the driver's camera follow the source road mesh. The editor work area is fixed at 2100 × 1850 ft; scenery extends beyond it.
 
-The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 example is translated onto the east apron without changing scale, shape, or headings. Its venue placement is approximate, not a surveyed alignment. Loading the example replaces course objects and is undoable. Older flat JSON layouts are translated onto Lincoln without scaling or rotating their objects; the original browser save is retained under `padwork-legacy-backup` during migration. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
+The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 example is rotated 180° onto the east apron and shifted 150 feet toward the lot center (west), preserving scale and shape and rotating all object headings together. Its venue placement is approximate, not a surveyed alignment. Loading the example replaces course objects and is undoable. Older flat Nationals layouts receive the same example placement; other flat JSON layouts are translated onto Lincoln without scaling or rotating their objects; the original browser save is retained under `padwork-legacy-backup` during migration. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
 
 The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. Blender extracts venue textures when generating the FBX; ksEditor material setup and in-game validation remain required.
 

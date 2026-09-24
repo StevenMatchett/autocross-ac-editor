@@ -19,14 +19,17 @@ export function validateLayout(value:unknown):Layout {
  return structuredClone(v);
 }
 export function snap(value:number,step:number){return step?Math.round(value/step)*step:value;}
-// Whole-pad translation places the PDF course on the east apron without rescaling
-// or rotating it. This is an approximate venue placement, not a surveyed alignment.
-export const EXAMPLE_VENUE_OFFSET={x:42*PAD,z:9*PAD};
+// Rotate around the traced pad rectangle center, then move six pads west
+// from the initial east-apron placement. Distances and joint alignment are retained.
+export const EXAMPLE_VENUE_OFFSET={x:36*PAD,z:9*PAD};
+function exampleOnVenue(item:Item):Item {
+ return {...item,x:nationalsEast.columns*PAD-item.x+EXAMPLE_VENUE_OFFSET.x,z:nationalsEast.rows*PAD-item.z+EXAMPLE_VENUE_OFFSET.z,angle:((item.angle+180)%360+360)%360};
+}
 export function demoLayout(venue?:Layout['venue']):Layout {
  const example=validateLayout(nationalsEast);
  if(venue==='lincoln'){
   example.venue=venue;example.columns=venueMetadata.columns;example.rows=venueMetadata.rows;
-  example.items=example.items.map(item=>({...item,x:item.x+EXAMPLE_VENUE_OFFSET.x,z:item.z+EXAMPLE_VENUE_OFFSET.z}));
+  example.items=example.items.map(exampleOnVenue);
  }
  return validateLayout(example);
 }
@@ -35,11 +38,11 @@ export function demoLayout(venue?:Layout['venue']):Layout {
 export function onVenue(layout:Layout):Layout {
  if(layout.venue==='lincoln')return structuredClone(layout);
  const isNationals=layout.items.some(item=>item.id.startsWith('nats-east-2026-'));
- const offset=isNationals?EXAMPLE_VENUE_OFFSET:{
+ const offset={
   x:Math.max(0,Math.round((venueMetadata.columns-layout.columns)/2))*PAD,
   z:Math.max(0,Math.round((venueMetadata.rows-layout.rows)/2))*PAD,
  };
- const migrated={...layout,venue:'lincoln' as const,columns:venueMetadata.columns,rows:venueMetadata.rows,items:layout.items.map(item=>({...item,x:item.x+offset.x,z:item.z+offset.z}))};
+ const migrated={...layout,venue:'lincoln' as const,columns:venueMetadata.columns,rows:venueMetadata.rows,items:layout.items.map(item=>isNationals?exampleOnVenue(item):({...item,x:item.x+offset.x,z:item.z+offset.z}))};
  if(migrated.items.some(item=>item.x>migrated.columns*PAD||item.z>migrated.rows*PAD))throw Error('This course is too large for the Lincoln venue.');
  return validateLayout(migrated);
 }
