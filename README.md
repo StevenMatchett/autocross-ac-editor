@@ -112,7 +112,7 @@ The first 3D load downloads about **41 MB**. Textures are resized, and Assetto C
 
 The ZIP contains the JSON layout, Blender scene/FBX generator, the original cone texture and mesh templates, track configuration (`models.ini`, `data/surfaces.ini`, `ui/ui_track.json`), and conversion instructions. Staging supplies pit and hotlap spawns; start and finish supply timing markers.
 
-Upright and pointer cones export as fixed collision meshes named `1WALL_cone_*` and `1WALL_pointer_*`. Preserve these names in ksEditor. Actual stopping, rebound, or climbing over cone geometry must be checked in-game; the export does not include the browser tester's speed-reset logic.
+Upright and pointer cones export with separate `1WALL_cone_*` and `1WALL_pointer_*` collision boxes extending 1.2 m above the pavement. Preserve these names and mark those boxes nonrenderable in ksEditor; `cone_*` and `pointer_*` are the visible meshes. Check impact behavior in-game; the export does not include the browser tester's speed-reset logic.
 
 The Blender/ksEditor/game pipeline has not been tested in those applications. KN5 compilation, AI lines, and game preview images are not included. The generator clears the Blender scene, so run it in a fresh session. Track conventions follow the [track creation guide](https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/).
 

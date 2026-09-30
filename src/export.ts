@@ -32,12 +32,14 @@ bpy.context.scene.unit_settings.scale_length = 1.0
 PAD = ${PAD}
 HEIGHT = ${CONE_HEIGHT}
 BASE = ${CONE_BASE}
+COLLIDER_HEIGHT = 1.2  # Reach above a car's bumper even where the cone tapers.
 width, depth = layout['columns']*PAD, layout['rows']*PAD
 def material(name, color):
     m = bpy.data.materials.new(name)
     m.diffuse_color = (*color, 1)
     return m
 concrete = [material('Concrete_'+str(i), (0.48+i*0.012, 0.49+i*0.012, 0.47+i*0.012)) for i in range(4)]
+collision_material = material('Cone_collision_hide_in_ksEditor', (.1, .7, 1))
 def cone_material(index):
     m = material('Cone_%04d'%index, (1, .22, .035))
     m.use_nodes = True
@@ -102,10 +104,22 @@ for index,item in enumerate(layout['items']):
         n=asset['normals']
         mesh.normals_split_custom_set_from_vertices([(n[i],-n[i+2],n[i+1]) for i in range(0,len(n),3)])
         for polygon in mesh.polygons: polygon.use_smooth=True
-        obj=bpy.data.objects.new('1WALL_'+item['kind']+'_%04d'%index,mesh)
+        obj=bpy.data.objects.new(item['kind']+'_%04d'%index,mesh)
         bpy.context.collection.objects.link(obj);obj.location=(x,-z,elevation)
         obj.rotation_euler.z=-math.radians(a);mesh.materials.append(orange)
-        # Original upright/pointer meshes are already grounded. WALL objects are fixed.
+        # A closed, raised box catches a car at bumper height. The original cone
+        # stays visual-only so its sloping sides cannot let the car ride over it.
+        local_x=[p[i] for i in range(0,len(p),3)]
+        local_y=[-p[i+2] for i in range(0,len(p),3)]
+        min_x,max_x=min(local_x),max(local_x)
+        min_y,max_y=min(local_y),max(local_y)
+        collider=cube('1WALL_'+item['kind']+'_%04d'%index,
+            (x,-z,elevation+COLLIDER_HEIGHT/2-.01),
+            (max(max_x-min_x,.35),max(max_y-min_y,.35),COLLIDER_HEIGHT+.02),
+            collision_material)
+        offset=Vector(((min_x+max_x)/2,(min_y+max_y)/2,0))
+        collider.location += Matrix.Rotation(-math.radians(a),4,'Z') @ offset
+        collider.rotation_euler.z=-math.radians(a)
     elif item['kind']=='stage':
         marker('AC_PIT_0',x,z,a,elevation)
         marker('AC_HOTLAP_START_0',x,z,a,elevation)
@@ -130,6 +144,8 @@ This is an Assetto Corsa SOURCE PACKAGE, not an installable track.
    Assign ksPerPixel materials and the included texture/ConePaintTexture.png diffuse maps.
    The PNG files contain the orange color and rubber marks; no procedural shader is required.
    Check scale (each pad 7.62 m), normals, and marker axes (Y up / Z forward).
+   Set every 1WALL_cone_* and 1WALL_pointer_* mesh to non-renderable in ksEditor.
+   Keep those meshes enabled for physics; the cone_* and pointer_* meshes are visual.
 4. Export ${slug}.kn5 into the included ${slug}/ folder.
 5. Copy ${slug}/ to assettocorsa/content/tracks/ and test in practice mode.
    Confirm spawn direction, A-to-B timing, and impacts against upright and pointer cones in-game.
@@ -141,10 +157,11 @@ Cone base is approximately 0.2914 m square. See ASSET_CREDITS.txt. Units in layo
 Heading 0 = north, 90 = east. Pointer tips follow that heading.
 Pointer cones rest on their base edge and tip. Timing gates default to 20 feet unless width is specified in the layout.
 ${layout.venue?'The imported Lincoln pavement retains its original elevations.':'The pavement is flat and continuous; joints are visual strips.'}
-Upright and pointer cones are fixed WALL collision meshes, not movable props.
-Their collision geometry matches their visible size and orientation.
+Upright and pointer cones have fixed WALL collision boxes, not movable props.
+The boxes follow each cone's footprint and heading, extending 1.2 m above the pavement.
+They are deliberately taller than the visible cones so car bumpers hit a wall face.
 The intended behavior is a solid obstacle that blocks the car. Actual impact response,
-including rebound or climbing over a low cone, depends on the game physics and car.
+including rebound, depends on the game physics and car.
 There is no scripted speed reset or cone penalty logic; verify stopping behavior in-game.
 A-to-B start/finish markers are timing lines. Pit and hotlap spawns use the staging point and its heading. No AI line.
 No KN5 compiler, AI, preview image or game installation is bundled.

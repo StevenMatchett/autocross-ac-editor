@@ -49,12 +49,19 @@ test('export spawns at staging and keeps timing markers separate',()=>{
 
 test('both cone orientations export as fixed collision meshes',()=>{
  const bundle=buildExport(completeLayout());const script=strFromU8(bundle.files['build_track.py']);
- // The shared cone branch must create static WALL geometry before pointer rotation.
+ // The shared branch gives both cone orientations a raised box independent of the visible mesh.
  const begin=script.indexOf("if item['kind'] in ('cone', 'pointer'):");
  const end=script.indexOf("elif item['kind']=='stage':",begin);
  const cones=script.slice(begin,end);
- assert.match(cones,/bpy.data.objects.new\('1WALL_'\+item\['kind'\]\+'_%04d'%index,mesh\)/);
+ assert.match(cones,/bpy.data.objects.new\(item\['kind'\]\+'_%04d'%index,mesh\)/);
+ assert.match(cones,/collider=cube\('1WALL_'\+item\['kind'\]\+'_%04d'%index,/);
+ assert.match(script,/COLLIDER_HEIGHT = 1\.2/);
+ assert.match(cones,/COLLIDER_HEIGHT\+\.02/);
+ assert.match(cones,/max\(max_x-min_x,\.35\),max\(max_y-min_y,\.35\)/);
+ assert.match(cones,/collider.rotation_euler.z=-math.radians\(a\)/);
  assert.match(cones,/mesh.from_pydata/);
  assert.doesNotMatch(script,/bpy\.ops\.rigidbody/);
- assert.match(strFromU8(bundle.files['README.txt']),/Keep 1WALL_cone_\* and 1WALL_pointer_\* mesh names intact/);
+ const readme=strFromU8(bundle.files['README.txt']);
+ assert.match(readme,/Keep 1WALL_cone_\* and 1WALL_pointer_\* mesh names intact/);
+ assert.match(readme,/Set every 1WALL_cone_\* and 1WALL_pointer_\* mesh to non-renderable/);
 });
