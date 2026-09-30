@@ -1,0 +1,16 @@
+Padwork direct KN5 build tools
+SPDX-License-Identifier: GPL-3.0-only
+
+Binary writers adapted from nendotools/ac-track-tools (GPL-3.0):
+https://github.com/nendotools/ac-track-tools
+Pinned commit: 3940bb90614efb82707a0964836563b11dd11f7f
+Upstream files reviewed: lib/kn5/kn5_writer.py, material_writer.py,
+node_writer.py, texture_writer.py, utils.py and constants.py.
+
+Changes: explicit material/object settings instead of Blender addon properties;
+matching embedded texture names; concrete PNG extraction; mesh transforms baked;
+complete-triangle vertex-limit splitting; marker world-basis conversion; validation
+and installation packaging. No addon installation or runtime downloads required.
+The build tools and their complete corresponding Python source are supplied in
+this source ZIP under GPL-3.0-only; see COPYING. These tools are separate from
+the editor UI and asset permission notices. Asset permissions are in ASSET_CREDITS.txt.

@@ -99,22 +99,57 @@ The import includes all nine shared venue models, including the paved lot, terra
 
 The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 example is rotated 180° onto the east apron and shifted 150 feet toward the lot center (west), preserving scale and shape and rotating all object headings together. Its venue placement is approximate, not a surveyed alignment. Loading the example replaces course objects and is undoable. Older flat Nationals layouts receive the same example placement; other flat JSON layouts are translated onto Lincoln without scaling or rotating their objects; the original browser save is retained under `padwork-legacy-backup` during migration. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
 
-The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. Blender extracts venue textures when generating the FBX; ksEditor material setup and in-game validation remain required.
+The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. The build command extracts all venue textures and configures materials during direct KN5 compilation. In-game validation remains required.
 
 ## Export to Assetto Corsa
 
-**Export track produces source files, not an installable game track.** You need Blender and the Assetto Corsa SDK's ksEditor to finish the conversion.
+**Export track** downloads a source package with a one-command compiler. Install Blender 4.5 or newer (the full Nationals venue build is verified with Blender 5.2.2), place staging, start, and finish, export, and extract the whole ZIP.
 
-1. Place staging, start, and finish, then choose **Export track**.
-2. Extract the ZIP and run `blender --background --python build_track.py` from that directory.
-3. Open the generated FBX in **ksEditor**, configure shaders/materials, and export the KN5 into the included track folder.
-4. Copy the completed folder into Assetto Corsa's `content/tracks` directory and verify it in-game.
+On Windows, open PowerShell in the extracted folder:
 
-The ZIP contains the JSON layout, Blender scene/FBX generator, the original cone texture and mesh templates, track configuration (`models.ini`, `data/surfaces.ini`, `ui/ui_track.json`), and conversion instructions. Staging supplies pit and hotlap spawns; start and finish supply timing markers.
+```powershell
+.\Build-Track.ps1 "C:\path\to\export"
+.\Build-Track.ps1 "C:\path\to\export" -Install
+```
 
-Upright and pointer cones export with separate `1WALL_cone_*` and `1WALL_pointer_*` collision boxes extending 1.2 m above the pavement. Preserve these names and mark those boxes nonrenderable in ksEditor; `cone_*` and `pointer_*` are the visible meshes. Check impact behavior in-game; the export does not include the browser tester's speed-reset logic.
+The command locates Blender, builds the scene and KN5, validates the result, and writes `<slug>-install.zip`. Override detected paths with `-BlenderPath "C:\path\to\blender.exe"` and `-ACPath "D:\SteamLibrary\steamapps\common\assettocorsa"`. Installation discovers the active Steam installation and libraries containing app **244210**, verifies `acs.exe`, and refuses to overwrite an existing track. Rename the course for a separate version, or move the previous track yourself before reinstalling.
 
-The Blender/ksEditor/game pipeline has not been tested in those applications. KN5 compilation, AI lines, and game preview images are not included. The generator clears the Blender scene, so run it in a fresh session. Track conventions follow the [track creation guide](https://assettocorsamods.net/threads/build-your-first-track-basic-guide.12/).
+On Linux/macOS, or to call Blender directly:
+
+```sh
+blender --background --python-exit-code 1 --python build_track.py
+```
+
+Run it from the extracted package. The script creates a fresh scene, saves an editable `.blend`, embeds diffuse textures with automatic `ksPerPixel` materials, preserves each cone's brightness, and handles venue alpha materials. ksEditor is optional: append `-- --fbx` to also produce an FBX for manual adjustments.
+
+The installation ZIP has this structure:
+
+```text
+content/tracks/<slug>/
+  <slug>.kn5
+  models.ini
+  data/surfaces.ini
+  ui/ui_track.json
+  ui/preview.png
+  ASSET_CREDITS.txt
+```
+
+The preview is a generated overhead course diagram. Folder, model filename, and `models.ini` match. Visible `cone_*` and `pointer_*` meshes use the original cone geometry. Separate fixed collision boxes named `1WALL_cone_*` and `1WALL_pointer_*` follow each footprint and heading and extend 1.2 m above pavement, with an explicit `WALL` surface. Direct KN5 export makes these boxes nonrenderable automatically; if using FBX/ksEditor, mark them nonrenderable there. Preserve those names, and the venue's `1PROAD`/`1GRASS` names, if editing the scene. AI lines are not included.
+
+The builder parses the entire KN5 and checks embedded texture references, material IDs, triangle indices, mesh vertex limits, expected cones, all six spawn/timing markers, marker position/up/heading, upward Lincoln pavement faces, and every authored position's elevation against the pavement. It validates ZIP paths and model references and writes `validation.json` beside the source files. Marker conversion changes the world basis only: source markers already have local Y-up/Z-forward axes.
+
+Direct export adapts the GPL-3.0 [ac-track-tools writers](https://github.com/nendotools/ac-track-tools/tree/3940bb90614efb82707a0964836563b11dd11f7f/lib/kn5), pinned to commit `3940bb90614efb82707a0964836563b11dd11f7f`. Build-tool source, `COPYING`, and `EXPORTER_NOTICE.txt` are included in every source export. Asset permissions remain documented separately in `ASSET_CREDITS.txt`. To update the bundled scripts, edit `scripts/track-build/` and run `node scripts/bundle-track-build.mjs`; tests/builds reject stale bundles.
+
+**Compiled/validated and tested in-game are separate results.** A previous **2026 Nationals — East** build with Blender 5.2.2 was installed and confirmed working by the user. Its timing and collision behavior were not separately confirmed. The new compiler's binary and geometry checks cannot establish those game behaviors.
+
+For each new build, start **Practice** and check:
+
+- Pit and hotlap spawn location, elevation, upright car orientation, and staging heading.
+- Start timing in the gate's arrow direction and finish timing at the finish gate.
+- Hit upright and pointer cones slowly and at course speed; verify the desired collision response.
+- Inspect pavement alignment, texture coverage, and transparent venue scenery.
+
+Cones are solid fixed obstacles; game physics determine stopping, rebound, or climbing over them. The export adds no browser speed reset, cone penalties, or movable-cone behavior.
 
 ## Hosting
 
@@ -127,7 +162,7 @@ Vite uses `/autocross-ac-editor/` for production assets and `/` for local develo
 TypeScript, Vite, Canvas 2D, Three.js, and fflate. No backend.
 
 ```sh
-npm test          # Unit tests
+npm test          # TypeScript + Python 3 unit tests
 npm run build     # Type-check and build
 npm run preview   # Serve the production build
 ```
@@ -140,6 +175,17 @@ node tests/driving-browser.mjs
 node tests/venue-browser.mjs
 node scripts/capture-screenshots.mjs
 ```
+
+Reproduce compiler smoke checks with Blender installed:
+
+```sh
+npx tsx scripts/export-build-fixture.ts /tmp/padwork-smoke
+blender --background --python-exit-code 1 --python /tmp/padwork-smoke/build_track.py -- --fbx
+npx tsx scripts/export-build-fixture.ts /tmp/padwork-nationals --venue
+blender --background --python-exit-code 1 --python /tmp/padwork-nationals/build_track.py
+```
+
+The venue fixture adds a finish to the example solely for compilation. These commands validate build artifacts; they do not run Assetto Corsa.
 
 Tests cover editing, persistence, real-world dimensions, example calibration, source export, driving controls, collisions, timing, tuning, and browser lifecycle. The screenshot script refreshes the images in this README using a fresh browser session.
 
