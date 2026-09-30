@@ -36,6 +36,10 @@ test('venue source export contains venue GLB, elevations and correct surface key
  assert.throws(()=>buildExport(layout),/venue model/);
  const bytes=gunzipSync(readFileSync(new URL('../public/venue/lincoln.glb.gz',import.meta.url)));
  assert.equal(new DataView(bytes.buffer).getUint32(0,true),0x46546c67);
+ assert.equal(bytes.byteLength,VENUE.glbBytes);
+ assert.equal(VENUE.pavementFinish,'2026-east-video-v1');
+ const jsonLength=new DataView(bytes.buffer).getUint32(12,true);
+ assert.equal(JSON.parse(new TextDecoder().decode(bytes.subarray(20,20+jsonLength))).extras.pavementFinish,VENUE.pavementFinish);
  const bundle=buildExport(layout,bytes,road);
  assert.equal(bundle.files['lincoln.glb'],bytes);
  const script=strFromU8(bundle.files['build_track.py']);assert.match(script,/bpy.ops.import_scene.gltf/);assert.match(script,/obj.location=\(x,-z,elevation\)/);

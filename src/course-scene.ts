@@ -6,7 +6,8 @@ export async function createCourseScene(layout:Layout){
  let venueScene:THREE.Group|undefined;
  if(layout.venue){await prepareVenue();venueScene=await loadVenueScene();}
  const scene=new THREE.Scene();scene.background=new THREE.Color('#dfe5de');const w=layout.columns*PAD,h=layout.rows*PAD;
- scene.add(new THREE.HemisphereLight(0xffffff,0x606b50,2.6));const sun=new THREE.DirectionalLight(0xffffff,2);sun.position.set(-30,80,20);scene.add(sun);
+ scene.add(new THREE.HemisphereLight(0xffffff,0x606b50,venueScene?1.5:2.6));
+ const sun=new THREE.DirectionalLight(0xffffff,venueScene?1.1:2);sun.position.set(-30,80,20);scene.add(sun);
  if(venueScene)scene.add(venueScene);
  else {
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({color:0xc2c6bc,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.set(w/2,0,h/2);scene.add(ground);

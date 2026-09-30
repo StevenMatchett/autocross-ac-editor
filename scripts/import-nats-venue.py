@@ -7,6 +7,7 @@ import sys,io,json,struct,gzip,hashlib
 import numpy as np
 from PIL import Image
 from kn5 import load
+from pavement_finish import refine_pavement, FINISH
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=Path(sys.argv[1]);OUT=ROOT/'public/venue';OUT.mkdir(parents=True,exist_ok=True)
 NAMES=['lincoln_road','lincoln_038ampt','lincoln_038bmpt','lincoln_grass','lincoln_3mpt','lincoln_1mpt','lincoln_019mpt','lincoln_trees','lincoln_scenery_objects']
@@ -24,15 +25,16 @@ def accessor(array,typ,component):
  if typ=='VEC3':a.update(min=array.min(axis=0).tolist(),max=array.max(axis=0).tolist())
  i=len(gltf['accessors']);gltf['accessors'].append(a);return i
 
-def texture(raw,alpha):
- key=(hashlib.sha256(raw).hexdigest(),alpha)
+def texture(raw,alpha,road=False):
+ key=(hashlib.sha256(raw).hexdigest(),alpha,road)
  if key in texture_cache:return texture_cache[key]
  im=Image.open(io.BytesIO(raw)).convert('RGBA' if alpha else 'RGB')
  # Retain the apron imagery at 4096; distant photo meshes need only 1024.
  size=4096 if im.width>=8192 else 1024
  im.thumbnail((size,size),Image.Resampling.LANCZOS)
  encoded=io.BytesIO();im.save(encoded,format='PNG' if alpha else 'JPEG',**({} if alpha else {'quality':88}))
- view=blob(encoded.getvalue());index=len(gltf['images']);gltf['images'].append({'bufferView':view,'mimeType':'image/png' if alpha else 'image/jpeg'})
+ image_bytes=refine_pavement(encoded.getvalue()) if road else encoded.getvalue()
+ view=blob(image_bytes);index=len(gltf['images']);gltf['images'].append({'bufferView':view,'mimeType':'image/png' if alpha else 'image/jpeg'})
  gltf['textures'].append({'sampler':0,'source':index});texture_cache[key]=index;return index
 
 for name in NAMES:
@@ -48,7 +50,8 @@ for name in NAMES:
   alpha=m['shader'] in ['ksTree','ksPerPixelAT','ksPerPixelAlpha'] or bool(m['alpha'])
   material={'name':m['name'],'doubleSided':alpha,'pbrMetallicRoughness':{'baseColorFactor':[1,1,1,1],'metallicFactor':0,'roughnessFactor':1}}
   diffuse=m['maps'].get('txDiffuse')
-  if diffuse in textures:material['pbrMetallicRoughness']['baseColorTexture']={'index':texture(textures[diffuse],alpha)}
+  if diffuse in textures:
+   material['pbrMetallicRoughness']['baseColorTexture']={'index':texture(textures[diffuse],alpha,m['name']=='RoadBackground')}
   if alpha:material.update(alphaMode='MASK',alphaCutoff=.35)
   if m['shader']=='ksTree':material['extensions']={'KHR_materials_unlit':{}}
   gltf['materials'].append(material)
@@ -67,6 +70,7 @@ for name in NAMES:
  print(name,count,flush=True)
 while len(binary)%4:binary.append(0)
 gltf['buffers']=[{'byteLength':len(binary)}]
+gltf['extras']={'pavementFinish':FINISH}
 js=json.dumps(gltf,separators=(',',':')).encode()
 while len(js)%4:js+=b' '
 glb=struct.pack('<III',0x46546c67,2,12+8+len(js)+8+len(binary))+struct.pack('<II',len(js),0x4e4f534a)+js+struct.pack('<II',len(binary),0x004e4942)+binary
@@ -74,6 +78,6 @@ glb=struct.pack('<III',0x46546c67,2,12+8+len(js)+8+len(binary))+struct.pack('<II
 # Compact exact road triangles used by both runtime grounding and driveable-area checks.
 road_bytes=struct.pack('<II',len(road['positions']),len(road['indices']))+road['positions'].tobytes()+road['indices'].tobytes()
 (OUT/'road.bin.gz').write_bytes(gzip.compress(road_bytes,mtime=0))
-meta={'id':'lincoln','name':'Lincoln Nationals','columns':COLUMNS,'rows':ROWS,'offset':OFFSET.tolist(),'sourceCommit':'1742a96633537278dfc4f647a984e45fed8de647','files':manifest,'meshCount':len(gltf['meshes']),'triangleCount':sum(a['count']//3 for a in gltf['accessors'] if a['type']=='SCALAR'),'downloadBytes':(OUT/'lincoln.glb.gz').stat().st_size,'glbBytes':len(glb)}
+meta={'id':'lincoln','name':'Lincoln Nationals','columns':COLUMNS,'rows':ROWS,'offset':OFFSET.tolist(),'sourceCommit':'1742a96633537278dfc4f647a984e45fed8de647','files':manifest,'meshCount':len(gltf['meshes']),'triangleCount':sum(a['count']//3 for a in gltf['accessors'] if a['type']=='SCALAR'),'downloadBytes':(OUT/'lincoln.glb.gz').stat().st_size,'glbBytes':len(glb),'pavementFinish':FINISH}
 (ROOT/'src/assets/venue.json').write_text(json.dumps(meta,indent=2)+'\n')
 print('GLB MB',len(glb)/1e6,'download MB',meta['downloadBytes']/1e6,'triangles',meta['triangleCount'])

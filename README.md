@@ -99,7 +99,9 @@ The import includes all nine shared venue models, including the paved lot, terra
 
 The optional 25-foot grid is a measuring overlay, not a surveyed alignment of pavement joints. The 2026 example is rotated 180° onto the east apron and shifted 150 feet toward the lot center (west), preserving scale and shape and rotating all object headings together. Its venue placement is approximate, not a surveyed alignment. Loading the example replaces course objects and is undoable. Older flat Nationals layouts receive the same example placement; other flat JSON layouts are translated onto Lincoln without scaling or rotating their objects; the original browser save is retained under `padwork-legacy-backup` during migration. The tester stops at the source driving-surface boundary; scenery is visual and does not have separate browser collision physics.
 
-The first 3D load downloads about **41 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. The build command extracts all venue textures and configures materials during direct KN5 compilation. In-game validation remains required.
+The east-apron concrete has a cooler gray finish and subtle aggregate grain informed by [2026 Nationals East in-car footage](https://www.youtube.com/watch?v=eUiUFwDX2AI). The original aerial image still supplies the slab layout and site details. The video does not establish exact aerial positions for temporary painted lines or tire marks, so those are not copied into the map.
+
+The first 3D load downloads about **42 MB**. Textures are resized, and Assetto Corsa shaders are approximated for Three.js/glTF. Export includes the same converted venue in `lincoln.glb`, placed at the same coordinates, plus course-object elevations. The build command extracts all venue textures and configures materials during direct KN5 compilation. In-game validation remains required.
 
 ## Export to Assetto Corsa
 
