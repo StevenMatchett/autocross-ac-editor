@@ -37,9 +37,14 @@ test('venue source export contains venue GLB, elevations and correct surface key
  const bytes=gunzipSync(readFileSync(new URL('../public/venue/lincoln.glb.gz',import.meta.url)));
  assert.equal(new DataView(bytes.buffer).getUint32(0,true),0x46546c67);
  assert.equal(bytes.byteLength,VENUE.glbBytes);
- assert.equal(VENUE.pavementFinish,'2026-east-video-v2');
+ assert.equal(VENUE.pavementFinish,'2026-east-concrete-v4');
  const jsonLength=new DataView(bytes.buffer).getUint32(12,true);
- assert.equal(JSON.parse(new TextDecoder().decode(bytes.subarray(20,20+jsonLength))).extras.pavementFinish,VENUE.pavementFinish);
+ const gltf=JSON.parse(new TextDecoder().decode(bytes.subarray(20,20+jsonLength)));
+ assert.equal(gltf.extras.pavementFinish,VENUE.pavementFinish);
+ const apron=gltf.meshes.find((mesh:{name:string})=>mesh.name==='EastApronConcrete');
+ assert.ok(apron,'shared concrete surface must be embedded in the venue GLB');
+ assert.ok(gltf.accessors[apron.primitives[0].indices].count>90000);
+ assert.ok(gltf.materials[apron.primitives[0].material].pbrMetallicRoughness.baseColorTexture);
  const bundle=buildExport(layout,bytes,road);
  assert.equal(bundle.files['lincoln.glb'],bytes);
  const script=strFromU8(bundle.files['build_track.py']);assert.match(script,/bpy.ops.import_scene.gltf/);assert.match(script,/obj.location=\(x,-z,elevation\)/);

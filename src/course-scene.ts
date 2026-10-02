@@ -36,6 +36,6 @@ export async function createCourseScene(layout:Layout){
 }
 export function disposeScene(scene:THREE.Scene){
  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();
- scene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material]){materials.add(m);if((m instanceof THREE.MeshStandardMaterial||m instanceof THREE.MeshBasicMaterial)&&m.map)textures.add(m.map);for(const texture of m.userData.extraTextures??[])textures.add(texture);}}});
+ scene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material]){materials.add(m);if((m instanceof THREE.MeshStandardMaterial||m instanceof THREE.MeshBasicMaterial)&&m.map)textures.add(m.map);}}});
  for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures){t.dispose();if(typeof ImageBitmap!=='undefined'&&t.image instanceof ImageBitmap)t.image.close();}scene.clear();
 }

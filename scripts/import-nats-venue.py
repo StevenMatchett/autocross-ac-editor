@@ -7,7 +7,7 @@ import sys,io,json,struct,gzip,hashlib
 import numpy as np
 from PIL import Image
 from kn5 import load
-from pavement_finish import refine_pavement, FINISH
+from pavement_finish import refine_pavement, add_apron_surface, FINISH
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=Path(sys.argv[1]);OUT=ROOT/'public/venue';OUT.mkdir(parents=True,exist_ok=True)
 NAMES=['lincoln_road','lincoln_038ampt','lincoln_038bmpt','lincoln_grass','lincoln_3mpt','lincoln_1mpt','lincoln_019mpt','lincoln_trees','lincoln_scenery_objects']
@@ -69,6 +69,7 @@ for name in NAMES:
  manifest.append({'file':path.name,'sha256':digest,'meshes':count})
  print(name,count,flush=True)
 while len(binary)%4:binary.append(0)
+add_apron_surface(gltf,binary)
 gltf['buffers']=[{'byteLength':len(binary)}]
 gltf['extras']={'pavementFinish':FINISH}
 js=json.dumps(gltf,separators=(',',':')).encode()
