@@ -37,7 +37,7 @@ test('venue source export contains venue GLB, elevations and correct surface key
  const bytes=gunzipSync(readFileSync(new URL('../public/venue/lincoln.glb.gz',import.meta.url)));
  assert.equal(new DataView(bytes.buffer).getUint32(0,true),0x46546c67);
  assert.equal(bytes.byteLength,VENUE.glbBytes);
- assert.equal(VENUE.pavementFinish,'2026-east-video-v1');
+ assert.equal(VENUE.pavementFinish,'2026-east-video-v2');
  const jsonLength=new DataView(bytes.buffer).getUint32(12,true);
  assert.equal(JSON.parse(new TextDecoder().decode(bytes.subarray(20,20+jsonLength))).extras.pavementFinish,VENUE.pavementFinish);
  const bundle=buildExport(layout,bytes,road);
